@@ -31,6 +31,7 @@
 #pragma once
 
 #include "scene/gui/dialogs.h"
+#include "lupine_project_types.h"
 
 class Button;
 class CheckBox;
@@ -39,6 +40,13 @@ class EditorFileDialog;
 class LineEdit;
 class OptionButton;
 class TextureRect;
+class VBoxContainer;
+class GridContainer;
+class RichTextLabel;
+class ScrollContainer;
+class Label;
+class HBoxContainer;
+class LupineModuleManager;
 
 class ProjectDialog : public ConfirmationDialog {
 	GDCLASS(ProjectDialog, ConfirmationDialog);
@@ -93,6 +101,25 @@ private:
 
 	CheckBox *edit_check_box = nullptr;
 
+	// Lupine Engine: Template and Module UI components
+	VBoxContainer *template_container = nullptr;
+	Label *template_selection_label = nullptr;
+	GridContainer *template_grid = nullptr;
+	RichTextLabel *template_description = nullptr;
+
+	VBoxContainer *module_container = nullptr;
+	Label *module_selection_label = nullptr;
+	ScrollContainer *module_scroll = nullptr;
+	VBoxContainer *module_list = nullptr;
+
+	String selected_template_id;
+	Vector<String> selected_modules;
+	Vector<ProjectTemplate> available_templates;
+	Vector<ProjectModule> available_modules;
+
+	// Lupine Module Manager
+	Ref<LupineModuleManager> module_manager;
+
 	EditorFileDialog *fdialog_project = nullptr;
 	EditorFileDialog *fdialog_install = nullptr;
 	AcceptDialog *dialog_error = nullptr;
@@ -134,6 +161,30 @@ private:
 	void _reset_name();
 	void _renderer_selected();
 	void _nonempty_confirmation_ok_pressed();
+
+	// Lupine Engine: Template and Module methods
+	void _initialize_templates();
+	void _initialize_modules();
+	void _setup_template_ui();
+	void _setup_module_ui();
+	void _template_selected(const String &p_template_id);
+	void _module_toggled(const String &p_module_id, bool p_enabled);
+	void _update_template_description();
+	void _update_module_dependencies();
+	void _create_template_project();
+	Vector<String> _get_template_folder_structure(const String &p_template_id);
+	void _create_template_files(const String &p_project_path, const String &p_template_id);
+	void _create_module_file(const String &p_file_path, const String &p_module_id, const String &p_relative_path);
+
+	// Player controller creation helpers
+	void _create_2d_topdown_controller(Ref<FileAccess> p_file);
+	void _create_2d_topdown_8dir_controller(Ref<FileAccess> p_file);
+	void _create_2d_platformer_controller(Ref<FileAccess> p_file);
+	void _create_3d_third_person_controller(Ref<FileAccess> p_file);
+	void _create_3d_first_person_controller(Ref<FileAccess> p_file);
+	void _create_player_stats_script(Ref<FileAccess> p_file);
+	void _create_2d_player_scene(Ref<FileAccess> p_file, const String &p_scene_name);
+	void _create_3d_player_scene(Ref<FileAccess> p_file, const String &p_scene_name);
 
 	void ok_pressed() override;
 

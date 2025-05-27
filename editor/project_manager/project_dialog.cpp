@@ -31,6 +31,7 @@
 #include "project_dialog.h"
 
 #include "core/config/project_settings.h"
+#include "modules/lupine_module_manager.h"
 #include "core/io/dir_access.h"
 #include "core/io/zip_io.h"
 #include "core/version.h"
@@ -46,6 +47,11 @@
 #include "scene/gui/option_button.h"
 #include "scene/gui/separator.h"
 #include "scene/gui/texture_rect.h"
+#include "scene/gui/grid_container.h"
+#include "scene/gui/rich_text_label.h"
+#include "scene/gui/scroll_container.h"
+#include "scene/gui/box_container.h"
+#include "scene/gui/label.h"
 
 void ProjectDialog::_set_message(const String &p_msg, MessageType p_type, InputType p_input_type) {
 	msg->set_text(p_msg);
@@ -241,6 +247,217 @@ void ProjectDialog::_validate_path() {
 
 			if (!is_folder_empty) {
 				_set_message(TTRC("The selected path is not empty. Choosing an empty folder is highly recommended."), MESSAGE_WARNING, target_path_input_type);
+			}
+		}
+	}
+}
+
+void ProjectDialog::_initialize_modules() {
+	// Use the module manager to get available modules
+	available_modules = module_manager->get_available_modules();
+}
+
+void ProjectDialog::_setup_template_ui() {
+	// Template container is already created and added to VBox in constructor
+
+	template_selection_label = memnew(Label);
+	template_selection_label->set_text(TTRC("Project Template:"));
+	template_container->add_child(template_selection_label);
+
+	// Create a grid for template selection with modern card-style layout
+	template_grid = memnew(GridContainer);
+	template_grid->set_columns(2); // 2 columns for template cards
+	template_grid->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	template_container->add_child(template_grid);
+
+	// Template description area
+	template_description = memnew(RichTextLabel);
+	template_description->set_custom_minimum_size(Size2(0, 80) * EDSCALE);
+	template_description->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	template_description->set_v_size_flags(Control::SIZE_SHRINK_CENTER);
+	template_description->set_use_bbcode(true);
+	template_description->set_text("[color=gray]Select a template to see its description[/color]");
+	template_container->add_child(template_description);
+
+	// Populate template grid with buttons
+	for (const ProjectTemplate &tmpl : available_templates) {
+		Button *template_btn = memnew(Button);
+		template_btn->set_text(tmpl.name);
+		template_btn->set_custom_minimum_size(Size2(200, 60) * EDSCALE);
+		template_btn->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+		template_btn->set_text_alignment(HORIZONTAL_ALIGNMENT_CENTER);
+		template_btn->set_clip_contents(true);
+		template_btn->set_tooltip_text(tmpl.description);
+		template_btn->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_template_selected).bind(tmpl.id));
+		template_grid->add_child(template_btn);
+	}
+
+	// Template container will be shown/hidden based on mode
+	template_container->set_visible(true);
+}
+
+void ProjectDialog::_setup_module_ui() {
+	// Module container is already created and added to VBox in constructor
+
+	module_selection_label = memnew(Label);
+	module_selection_label->set_text(TTRC("Additional Modules:"));
+	module_container->add_child(module_selection_label);
+
+	// Scrollable module list
+	module_scroll = memnew(ScrollContainer);
+	module_scroll->set_custom_minimum_size(Size2(0, 200) * EDSCALE);
+	module_scroll->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	module_scroll->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+	module_container->add_child(module_scroll);
+
+	module_list = memnew(VBoxContainer);
+	module_scroll->add_child(module_list);
+
+	// Group modules by category
+	HashMap<String, VBoxContainer*> category_containers;
+
+	for (const ProjectModule &mod : available_modules) {
+		if (!category_containers.has(mod.category)) {
+			// Create category header
+			Label *category_label = memnew(Label);
+			category_label->set_text(mod.category);
+			// Skip theme style override for now to avoid potential issues
+			category_label->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+			module_list->add_child(category_label);
+
+			VBoxContainer *category_vbox = memnew(VBoxContainer);
+			module_list->add_child(category_vbox);
+			category_containers[mod.category] = category_vbox;
+		}
+
+		VBoxContainer *category_vbox = category_containers[mod.category];
+
+		CheckBox *module_checkbox = memnew(CheckBox);
+		module_checkbox->set_text(mod.name);
+		module_checkbox->set_tooltip_text(mod.description);
+		module_checkbox->set_toggle_mode(true);
+		module_checkbox->connect(SceneStringName(toggled), callable_mp(this, &ProjectDialog::_module_toggled).bind(mod.id));
+		category_vbox->add_child(module_checkbox);
+	}
+
+	// Module container will be shown/hidden based on mode
+	module_container->set_visible(true);
+}
+
+void ProjectDialog::_template_selected(const String &p_template_id) {
+	selected_template_id = p_template_id;
+
+	// Update visual selection
+	for (int i = 0; i < template_grid->get_child_count(); i++) {
+		Button *btn = Object::cast_to<Button>(template_grid->get_child(i));
+		if (btn) {
+			btn->set_pressed(false);
+		}
+	}
+
+	// Find and highlight selected template
+	for (int i = 0; i < template_grid->get_child_count(); i++) {
+		Button *btn = Object::cast_to<Button>(template_grid->get_child(i));
+		if (btn) {
+			// Check if this button corresponds to the selected template
+			for (const ProjectTemplate &tmpl : available_templates) {
+				if (tmpl.id == p_template_id && btn->get_text() == tmpl.name) {
+					btn->set_pressed(true);
+					break;
+				}
+			}
+		}
+	}
+
+	_update_template_description();
+	_update_module_dependencies();
+}
+
+void ProjectDialog::_module_toggled(const String &p_module_id, bool p_enabled) {
+	if (p_enabled) {
+		if (!selected_modules.has(p_module_id)) {
+			selected_modules.push_back(p_module_id);
+		}
+	} else {
+		selected_modules.erase(p_module_id);
+	}
+
+	_update_module_dependencies();
+}
+
+void ProjectDialog::_update_template_description() {
+	if (selected_template_id.is_empty()) {
+		template_description->set_text("[color=gray]Select a template to see its description[/color]");
+		return;
+	}
+
+	for (const ProjectTemplate &tmpl : available_templates) {
+		if (tmpl.id == selected_template_id) {
+			String desc_text = "[b]" + tmpl.name + "[/b]\n";
+			desc_text += "[color=lightblue]Category: " + tmpl.category + "[/color]\n\n";
+			desc_text += tmpl.description;
+
+			if (!tmpl.default_modules.is_empty()) {
+				desc_text += "\n\n[color=yellow]Includes modules:[/color]";
+				for (const String &module_id : tmpl.default_modules) {
+					for (const ProjectModule &mod : available_modules) {
+						if (mod.id == module_id) {
+							desc_text += "\n• " + mod.name;
+							break;
+						}
+					}
+				}
+			}
+
+			template_description->set_text(desc_text);
+			break;
+		}
+	}
+}
+
+void ProjectDialog::_update_module_dependencies() {
+	// Auto-select default modules for the selected template
+	if (!selected_template_id.is_empty()) {
+		for (const ProjectTemplate &tmpl : available_templates) {
+			if (tmpl.id == selected_template_id) {
+				for (const String &module_id : tmpl.default_modules) {
+					if (!selected_modules.has(module_id)) {
+						selected_modules.push_back(module_id);
+					}
+				}
+				break;
+			}
+		}
+	}
+
+	// Update checkbox states
+	for (int i = 0; i < module_list->get_child_count(); i++) {
+		Node *child = module_list->get_child(i);
+		VBoxContainer *category_vbox = Object::cast_to<VBoxContainer>(child);
+		if (category_vbox) {
+			for (int j = 0; j < category_vbox->get_child_count(); j++) {
+				CheckBox *checkbox = Object::cast_to<CheckBox>(category_vbox->get_child(j));
+				if (checkbox) {
+					// Find corresponding module
+					for (const ProjectModule &mod : available_modules) {
+						if (mod.name == checkbox->get_text()) {
+							checkbox->set_pressed(selected_modules.has(mod.id));
+
+							// Disable if it's a default module for the selected template
+							bool is_default = false;
+							if (!selected_template_id.is_empty()) {
+								for (const ProjectTemplate &tmpl : available_templates) {
+									if (tmpl.id == selected_template_id && tmpl.default_modules.has(mod.id)) {
+										is_default = true;
+										break;
+									}
+								}
+							}
+							checkbox->set_disabled(is_default);
+							break;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -576,6 +793,11 @@ void ProjectDialog::ok_pressed() {
 			f->close();
 			FileAccess::set_hidden_attribute(editor_config_path, true);
 		}
+
+		// Lupine Engine: Create template-based project structure
+		if (!selected_template_id.is_empty()) {
+			_create_template_project();
+		}
 	}
 
 	// Two cases for importing a ZIP.
@@ -808,6 +1030,14 @@ void ProjectDialog::show_dialog(bool p_reset_name) {
 		renderer_container->hide();
 		default_files_container->hide();
 
+		// Lupine Engine: Hide template and module containers for rename mode
+		if (template_container) {
+			template_container->hide();
+		}
+		if (module_container) {
+			module_container->hide();
+		}
+
 		callable_mp((Control *)project_name, &Control::grab_focus).call_deferred();
 		callable_mp(project_name, &LineEdit::select_all).call_deferred();
 	} else {
@@ -850,15 +1080,31 @@ void ProjectDialog::show_dialog(bool p_reset_name) {
 			renderer_container->hide();
 			default_files_container->hide();
 
+			// Lupine Engine: Hide template and module containers for import mode
+			if (template_container) {
+				template_container->hide();
+			}
+			if (module_container) {
+				module_container->hide();
+			}
+
 			// Project path dialog is also opened; no need to change focus.
 		} else if (mode == MODE_NEW) {
-			set_title(TTRC("Create New Project"));
+			set_title(TTRC("Create New Lupine Project"));
 			set_ok_button_text(TTRC("Create"));
 
 			name_container->show();
 			install_path_container->hide();
 			renderer_container->show();
 			default_files_container->show();
+
+			// Lupine Engine: Show template and module selection for new projects
+			if (template_container) {
+				template_container->show();
+			}
+			if (module_container) {
+				module_container->show();
+			}
 
 			callable_mp((Control *)project_name, &Control::grab_focus).call_deferred();
 			callable_mp(project_name, &LineEdit::select_all).call_deferred();
@@ -873,6 +1119,14 @@ void ProjectDialog::show_dialog(bool p_reset_name) {
 			renderer_container->hide();
 			default_files_container->hide();
 
+			// Lupine Engine: Hide template and module containers for install mode
+			if (template_container) {
+				template_container->hide();
+			}
+			if (module_container) {
+				module_container->hide();
+			}
+
 			callable_mp((Control *)project_path, &Control::grab_focus).call_deferred();
 		} else if (mode == MODE_DUPLICATE) {
 			set_title(TTRC("Duplicate Project"));
@@ -884,6 +1138,14 @@ void ProjectDialog::show_dialog(bool p_reset_name) {
 			default_files_container->hide();
 			if (!duplicate_can_edit) {
 				edit_check_box->hide();
+			}
+
+			// Lupine Engine: Hide template and module containers for duplicate mode
+			if (template_container) {
+				template_container->hide();
+			}
+			if (module_container) {
+				module_container->hide();
 			}
 
 			callable_mp((Control *)project_name, &Control::grab_focus).call_deferred();
@@ -948,6 +1210,14 @@ ProjectDialog::ProjectDialog() {
 	project_name->set_virtual_keyboard_show_on_focus(false);
 	project_name->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	name_container->add_child(project_name);
+
+	// Lupine Engine: Add template and module containers after name but before path
+	// Create placeholder containers that will be set up later
+	template_container = memnew(VBoxContainer);
+	vb->add_child(template_container);
+
+	module_container = memnew(VBoxContainer);
+	vb->add_child(module_container);
 
 	project_path_container = memnew(VBoxContainer);
 	vb->add_child(project_path_container);
@@ -1159,4 +1429,1094 @@ ProjectDialog::ProjectDialog() {
 
 	dialog_error = memnew(AcceptDialog);
 	add_child(dialog_error);
+
+	// Lupine Engine: Initialize module manager and templates
+	module_manager.instantiate();
+	_initialize_templates();
+	_initialize_modules();
+	_setup_template_ui();
+	_setup_module_ui();
+}
+
+// Lupine Engine: Template and Module Implementation
+
+void ProjectDialog::_initialize_templates() {
+	available_templates.clear();
+
+	// 2D Templates
+	{
+		ProjectTemplate template_2d_topdown_4dir;
+		template_2d_topdown_4dir.id = "2d_topdown_rpg_4dir";
+		template_2d_topdown_4dir.name = "2D Top-down RPG (4-Direction)";
+		template_2d_topdown_4dir.description = "Classic 2D top-down RPG with 4-directional movement. Perfect for retro-style adventures and dungeon crawlers.";
+		template_2d_topdown_4dir.category = "2D RPG";
+		template_2d_topdown_4dir.default_modules.push_back("player_controller_2d_topdown");
+		template_2d_topdown_4dir.default_modules.push_back("camera_follow_2d");
+		template_2d_topdown_4dir.default_modules.push_back("inventory_basic");
+		template_2d_topdown_4dir.default_modules.push_back("dialogue_system");
+		template_2d_topdown_4dir.folder_structure.push_back("scenes/characters");
+		template_2d_topdown_4dir.folder_structure.push_back("scenes/environments");
+		template_2d_topdown_4dir.folder_structure.push_back("scenes/ui");
+		template_2d_topdown_4dir.folder_structure.push_back("scripts/characters");
+		template_2d_topdown_4dir.folder_structure.push_back("scripts/systems");
+		template_2d_topdown_4dir.folder_structure.push_back("assets/sprites/characters");
+		template_2d_topdown_4dir.folder_structure.push_back("assets/sprites/environments");
+		template_2d_topdown_4dir.folder_structure.push_back("assets/audio/music");
+		template_2d_topdown_4dir.folder_structure.push_back("assets/audio/sfx");
+		template_2d_topdown_4dir.main_scene_template = "Main2DTopdown.tscn";
+		available_templates.push_back(template_2d_topdown_4dir);
+
+		ProjectTemplate template_2d_topdown_8dir;
+		template_2d_topdown_8dir.id = "2d_topdown_rpg_8dir";
+		template_2d_topdown_8dir.name = "2D Top-down RPG (8-Direction)";
+		template_2d_topdown_8dir.description = "Modern 2D top-down RPG with 8-directional movement for smoother character control and more dynamic gameplay.";
+		template_2d_topdown_8dir.category = "2D RPG";
+		template_2d_topdown_8dir.default_modules.push_back("player_controller_2d_topdown_8dir");
+		template_2d_topdown_8dir.default_modules.push_back("camera_follow_2d");
+		template_2d_topdown_8dir.default_modules.push_back("inventory_basic");
+		template_2d_topdown_8dir.default_modules.push_back("dialogue_system");
+		template_2d_topdown_8dir.folder_structure = template_2d_topdown_4dir.folder_structure; // Same structure
+		template_2d_topdown_8dir.main_scene_template = "Main2DTopdown8Dir.tscn";
+		available_templates.push_back(template_2d_topdown_8dir);
+
+		ProjectTemplate template_2d_sidescroller;
+		template_2d_sidescroller.id = "2d_sidescroller_rpg";
+		template_2d_sidescroller.name = "2D Sidescroller RPG";
+		template_2d_sidescroller.description = "Side-scrolling RPG with platforming elements. Great for Metroidvania-style games with RPG progression.";
+		template_2d_sidescroller.category = "2D RPG";
+		template_2d_sidescroller.default_modules.push_back("player_controller_2d_platformer");
+		template_2d_sidescroller.default_modules.push_back("camera_follow_2d_sidescroll");
+		template_2d_sidescroller.default_modules.push_back("inventory_basic");
+		template_2d_sidescroller.default_modules.push_back("dialogue_system");
+		template_2d_sidescroller.folder_structure = template_2d_topdown_4dir.folder_structure; // Same base structure
+		template_2d_sidescroller.main_scene_template = "Main2DSidescroller.tscn";
+		available_templates.push_back(template_2d_sidescroller);
+	}
+
+	// 3D Templates
+	{
+		ProjectTemplate template_3d_rpg;
+		template_3d_rpg.id = "3d_third_person_rpg";
+		template_3d_rpg.name = "3D Third-Person RPG";
+		template_3d_rpg.description = "Full 3D RPG with third-person camera and exploration. Perfect for open-world adventures and story-driven games.";
+		template_3d_rpg.category = "3D RPG";
+		template_3d_rpg.default_modules.push_back("player_controller_3d_third_person");
+		template_3d_rpg.default_modules.push_back("camera_follow_3d");
+		template_3d_rpg.default_modules.push_back("inventory_advanced");
+		template_3d_rpg.default_modules.push_back("dialogue_system");
+		template_3d_rpg.default_modules.push_back("quest_system");
+		template_3d_rpg.folder_structure.push_back("scenes/characters");
+		template_3d_rpg.folder_structure.push_back("scenes/environments");
+		template_3d_rpg.folder_structure.push_back("scenes/ui");
+		template_3d_rpg.folder_structure.push_back("scripts/characters");
+		template_3d_rpg.folder_structure.push_back("scripts/systems");
+		template_3d_rpg.folder_structure.push_back("assets/models/characters");
+		template_3d_rpg.folder_structure.push_back("assets/models/environments");
+		template_3d_rpg.folder_structure.push_back("assets/textures");
+		template_3d_rpg.folder_structure.push_back("assets/audio/music");
+		template_3d_rpg.folder_structure.push_back("assets/audio/sfx");
+		template_3d_rpg.main_scene_template = "Main3DRPG.tscn";
+		available_templates.push_back(template_3d_rpg);
+
+		ProjectTemplate template_3d_farming;
+		template_3d_farming.id = "3d_farming_game";
+		template_3d_farming.name = "3D Farming Game";
+		template_3d_farming.description = "Peaceful farming simulation with crop management, animal care, and social elements. Inspired by Harvest Moon and Stardew Valley.";
+		template_3d_farming.category = "3D Simulation";
+		template_3d_farming.default_modules.push_back("player_controller_3d_third_person");
+		template_3d_farming.default_modules.push_back("camera_follow_3d");
+		template_3d_farming.default_modules.push_back("inventory_farming");
+		template_3d_farming.default_modules.push_back("dialogue_system");
+		template_3d_farming.default_modules.push_back("farming_system");
+		template_3d_farming.default_modules.push_back("time_system");
+		template_3d_farming.folder_structure = template_3d_rpg.folder_structure; // Same base structure
+		template_3d_farming.folder_structure.push_back("assets/models/crops");
+		template_3d_farming.folder_structure.push_back("assets/models/animals");
+		template_3d_farming.main_scene_template = "MainFarming.tscn";
+		available_templates.push_back(template_3d_farming);
+	}
+
+	// Visual Novel Templates
+	{
+		ProjectTemplate template_visual_novel;
+		template_visual_novel.id = "visual_novel";
+		template_visual_novel.name = "Visual Novel";
+		template_visual_novel.description = "Story-focused visual novel with branching narratives, character portraits, and rich dialogue system.";
+		template_visual_novel.category = "Visual Novel";
+		template_visual_novel.default_modules.push_back("visual_novel_script_parser");
+		template_visual_novel.default_modules.push_back("character_portrait_system");
+		template_visual_novel.default_modules.push_back("background_manager");
+		template_visual_novel.default_modules.push_back("audio_manager");
+		template_visual_novel.default_modules.push_back("save_load_system");
+		template_visual_novel.default_modules.push_back("choice_system");
+		template_visual_novel.default_modules.push_back("visual_novel_main_scene");
+		template_visual_novel.folder_structure.push_back("scenes/ui");
+		template_visual_novel.folder_structure.push_back("scripts/dialogue");
+		template_visual_novel.folder_structure.push_back("scripts/ui");
+		template_visual_novel.folder_structure.push_back("globals");
+		template_visual_novel.folder_structure.push_back("assets/portraits");
+		template_visual_novel.folder_structure.push_back("assets/backgrounds");
+		template_visual_novel.folder_structure.push_back("assets/music");
+		template_visual_novel.folder_structure.push_back("assets/soundEffects");
+		template_visual_novel.folder_structure.push_back("data/dialogue");
+		template_visual_novel.main_scene_template = "MainVisualNovel.tscn";
+		available_templates.push_back(template_visual_novel);
+
+		ProjectTemplate template_vn_tactical;
+		template_vn_tactical.id = "visual_novel_tactical";
+		template_vn_tactical.name = "Visual Novel with Tactical Combat";
+		template_vn_tactical.description = "Combines rich storytelling with strategic grid-based combat. Perfect for Fire Emblem-style games.";
+		template_vn_tactical.category = "Visual Novel";
+		template_vn_tactical.default_modules.push_back("visual_novel_script_parser");
+		template_vn_tactical.default_modules.push_back("character_portrait_system");
+		template_vn_tactical.default_modules.push_back("background_manager");
+		template_vn_tactical.default_modules.push_back("audio_manager");
+		template_vn_tactical.default_modules.push_back("save_load_system");
+		template_vn_tactical.default_modules.push_back("choice_system");
+		template_vn_tactical.default_modules.push_back("visual_novel_main_scene");
+		template_vn_tactical.default_modules.push_back("tactical_combat_system");
+		template_vn_tactical.default_modules.push_back("grid_movement_system");
+		template_vn_tactical.default_modules.push_back("character_stats_system");
+		template_vn_tactical.folder_structure = template_visual_novel.folder_structure;
+		template_vn_tactical.folder_structure.push_back("scenes/combat");
+		template_vn_tactical.folder_structure.push_back("scripts/combat");
+		template_vn_tactical.folder_structure.push_back("data/units");
+		template_vn_tactical.folder_structure.push_back("data/maps");
+		template_vn_tactical.main_scene_template = "MainVNTactical.tscn";
+		available_templates.push_back(template_vn_tactical);
+	}
+
+	// Monster Capture Templates
+	{
+		ProjectTemplate template_monster_2d;
+		template_monster_2d.id = "monster_capture_2d";
+		template_monster_2d.name = "Monster Capture 2D";
+		template_monster_2d.description = "Pokemon-inspired monster collection game with turn-based combat and creature management.";
+		template_monster_2d.category = "Monster Capture";
+		template_monster_2d.default_modules.push_back("player_controller_2d_topdown");
+		template_monster_2d.default_modules.push_back("monster_system");
+		template_monster_2d.default_modules.push_back("turn_based_combat");
+		template_monster_2d.default_modules.push_back("monster_capture_system");
+		template_monster_2d.default_modules.push_back("inventory_basic");
+		template_monster_2d.folder_structure.push_back("scenes/overworld");
+		template_monster_2d.folder_structure.push_back("scenes/combat");
+		template_monster_2d.folder_structure.push_back("scenes/ui");
+		template_monster_2d.folder_structure.push_back("scripts/monsters");
+		template_monster_2d.folder_structure.push_back("scripts/combat");
+		template_monster_2d.folder_structure.push_back("assets/sprites/monsters");
+		template_monster_2d.folder_structure.push_back("assets/sprites/environments");
+		template_monster_2d.folder_structure.push_back("data/monsters");
+		template_monster_2d.folder_structure.push_back("data/moves");
+		template_monster_2d.main_scene_template = "MainMonsterCapture2D.tscn";
+		available_templates.push_back(template_monster_2d);
+
+		ProjectTemplate template_monster_3d;
+		template_monster_3d.id = "monster_capture_3d";
+		template_monster_3d.name = "Monster Capture 3D";
+		template_monster_3d.description = "3D monster collection game with immersive environments and dynamic combat system.";
+		template_monster_3d.category = "Monster Capture";
+		template_monster_3d.default_modules.push_back("player_controller_3d_third_person");
+		template_monster_3d.default_modules.push_back("monster_system");
+		template_monster_3d.default_modules.push_back("realtime_combat");
+		template_monster_3d.default_modules.push_back("monster_capture_system");
+		template_monster_3d.default_modules.push_back("inventory_basic");
+		template_monster_3d.folder_structure = template_monster_2d.folder_structure;
+		template_monster_3d.folder_structure.push_back("assets/models/monsters");
+		template_monster_3d.folder_structure.push_back("assets/models/environments");
+		template_monster_3d.main_scene_template = "MainMonsterCapture3D.tscn";
+		available_templates.push_back(template_monster_3d);
+	}
+}
+
+void ProjectDialog::_create_template_project() {
+	// This method will be called from ok_pressed() when creating a new project with templates
+	// For now, it will create the basic project structure and placeholder files
+
+	String path = _get_target_path();
+	if (path.is_empty()) {
+		return;
+	}
+
+	// Create folder structure based on selected template
+	Vector<String> folders = _get_template_folder_structure(selected_template_id);
+	Ref<DirAccess> dir = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+
+	for (const String &folder : folders) {
+		String full_path = path.path_join(folder);
+		Error err = dir->make_dir_recursive(full_path);
+		if (err != OK) {
+			ERR_PRINT("Failed to create directory: " + full_path);
+		}
+	}
+
+	// Create template-specific files
+	_create_template_files(path, selected_template_id);
+
+	// Create module files for selected modules
+	for (const String &module_id : selected_modules) {
+		for (const ProjectModule &mod : available_modules) {
+			if (mod.id == module_id) {
+				for (const String &file_path : mod.files_to_create) {
+					String full_path = path.path_join(file_path);
+					String dir_path = full_path.get_base_dir();
+
+					// Ensure directory exists
+					dir->make_dir_recursive(dir_path);
+
+					// Create specialized file content based on module type
+					_create_module_file(full_path, mod.id, file_path);
+				}
+				break;
+			}
+		}
+	}
+
+	// Register autoloads for global scripts
+	module_manager->register_autoloads(path, selected_modules);
+
+	// Create main scene based on selected modules
+	module_manager->create_main_scene(path, selected_modules);
+}
+
+Vector<String> ProjectDialog::_get_template_folder_structure(const String &p_template_id) {
+	for (const ProjectTemplate &tmpl : available_templates) {
+		if (tmpl.id == p_template_id) {
+			return tmpl.folder_structure;
+		}
+	}
+	return Vector<String>();
+}
+
+void ProjectDialog::_create_template_files(const String &p_project_path, const String &p_template_id) {
+	// Create main scene file based on template
+	for (const ProjectTemplate &tmpl : available_templates) {
+		if (tmpl.id == p_template_id) {
+			String main_scene_path = p_project_path.path_join(tmpl.main_scene_template);
+			Ref<FileAccess> file = FileAccess::open(main_scene_path, FileAccess::WRITE);
+			if (file.is_valid()) {
+				// Create a basic main scene based on template type
+				if (tmpl.category.contains("2D")) {
+					file->store_line("[gd_scene load_steps=2 format=3]");
+					file->store_line("");
+					file->store_line("[node name=\"Main\" type=\"Node2D\"]");
+					file->store_line("");
+					file->store_line("[node name=\"Player\" type=\"CharacterBody2D\" parent=\".\"]");
+					file->store_line("");
+					file->store_line("[node name=\"Camera2D\" type=\"Camera2D\" parent=\"Player\"]");
+				} else if (tmpl.category.contains("3D")) {
+					file->store_line("[gd_scene load_steps=2 format=3]");
+					file->store_line("");
+					file->store_line("[node name=\"Main\" type=\"Node3D\"]");
+					file->store_line("");
+					file->store_line("[node name=\"Player\" type=\"CharacterBody3D\" parent=\".\"]");
+					file->store_line("");
+					file->store_line("[node name=\"Camera3D\" type=\"Camera3D\" parent=\"Player\"]");
+				} else if (tmpl.category.contains("Visual Novel")) {
+					file->store_line("[gd_scene load_steps=2 format=3]");
+					file->store_line("");
+					file->store_line("[node name=\"Main\" type=\"Control\"]");
+					file->store_line("layout_mode = 3");
+					file->store_line("anchors_preset = 15");
+					file->store_line("");
+					file->store_line("[node name=\"DialogueUI\" type=\"Control\" parent=\".\"]");
+					file->store_line("layout_mode = 1");
+					file->store_line("anchors_preset = 15");
+				} else {
+					// Default scene
+					file->store_line("[gd_scene format=3]");
+					file->store_line("");
+					file->store_line("[node name=\"Main\" type=\"Node\"]");
+				}
+				file->close();
+			}
+
+			// Create a README file with template information
+			String readme_path = p_project_path.path_join("README.md");
+			Ref<FileAccess> readme = FileAccess::open(readme_path, FileAccess::WRITE);
+			if (readme.is_valid()) {
+				readme->store_line("# " + tmpl.name);
+				readme->store_line("");
+				readme->store_line(tmpl.description);
+				readme->store_line("");
+				readme->store_line("## Template Category: " + tmpl.category);
+				readme->store_line("");
+				readme->store_line("## Included Modules:");
+				for (const String &module_id : tmpl.default_modules) {
+					for (const ProjectModule &mod : available_modules) {
+						if (mod.id == module_id) {
+							readme->store_line("- **" + mod.name + "**: " + mod.description);
+							break;
+						}
+					}
+				}
+				readme->store_line("");
+				readme->store_line("## Additional Selected Modules:");
+				for (const String &module_id : selected_modules) {
+					if (!tmpl.default_modules.has(module_id)) {
+						for (const ProjectModule &mod : available_modules) {
+							if (mod.id == module_id) {
+								readme->store_line("- **" + mod.name + "**: " + mod.description);
+								break;
+							}
+						}
+					}
+				}
+				readme->store_line("");
+				readme->store_line("---");
+				readme->store_line("*Created with Lupine Engine - A narrative-focused game development platform*");
+				readme->close();
+			}
+			break;
+		}
+	}
+}
+
+void ProjectDialog::_create_module_file(const String &p_file_path, const String &p_module_id, const String &p_relative_path) {
+	// Use the module manager to create the file
+	module_manager->create_module_file(p_file_path, p_module_id, p_relative_path);
+}
+
+// Old PlayerStats method removed - now handled by module system
+
+void ProjectDialog::_create_2d_topdown_controller(Ref<FileAccess> p_file) {
+	p_file->store_line("# PlayerController2DTopdown.gd");
+	p_file->store_line("# Generated by Lupine Engine - 2D Top-down Player Controller");
+	p_file->store_line("# 4-directional movement with health, stamina, combat, and interaction");
+	p_file->store_line("");
+	p_file->store_line("extends CharacterBody2D");
+	p_file->store_line("class_name PlayerController2DTopdown");
+	p_file->store_line("");
+	p_file->store_line("# Movement settings");
+	p_file->store_line("@export var base_speed: float = 200.0");
+	p_file->store_line("@export var sprint_speed: float = 350.0");
+	p_file->store_line("@export var sprint_stamina_cost: float = 30.0  # Per second");
+	p_file->store_line("");
+	p_file->store_line("# Combat settings");
+	p_file->store_line("@export var attack_damage: float = 25.0");
+	p_file->store_line("@export var attack_range: float = 50.0");
+	p_file->store_line("@export var attack_stamina_cost: float = 15.0");
+	p_file->store_line("@export var ranged_attack_damage: float = 20.0");
+	p_file->store_line("@export var ranged_attack_range: float = 200.0");
+	p_file->store_line("@export var ranged_attack_mana_cost: float = 10.0");
+	p_file->store_line("");
+	p_file->store_line("# Dash settings");
+	p_file->store_line("@export var dash_distance: float = 100.0");
+	p_file->store_line("@export var dash_duration: float = 0.2");
+	p_file->store_line("@export var dash_stamina_cost: float = 20.0");
+	p_file->store_line("@export var dash_cooldown: float = 1.0");
+	p_file->store_line("");
+	p_file->store_line("# Interaction settings");
+	p_file->store_line("@export var interaction_range: float = 80.0");
+	p_file->store_line("");
+	p_file->store_line("# Node references");
+	p_file->store_line("@onready var stats: PlayerStats = $PlayerStats");
+	p_file->store_line("@onready var sprite: Sprite2D = $Sprite2D");
+	p_file->store_line("@onready var collision: CollisionShape2D = $CollisionShape2D");
+	p_file->store_line("@onready var interaction_area: Area2D = $InteractionArea");
+	p_file->store_line("");
+	p_file->store_line("# State variables");
+	p_file->store_line("var current_direction: Vector2 = Vector2.ZERO");
+	p_file->store_line("var is_sprinting: bool = false");
+	p_file->store_line("var is_dashing: bool = false");
+	p_file->store_line("var dash_timer: float = 0.0");
+	p_file->store_line("var dash_cooldown_timer: float = 0.0");
+	p_file->store_line("var dash_start_pos: Vector2");
+	p_file->store_line("var dash_target_pos: Vector2");
+	p_file->store_line("");
+	p_file->store_line("# Signals");
+	p_file->store_line("signal attacked(damage: float, position: Vector2)");
+	p_file->store_line("signal ranged_attacked(damage: float, position: Vector2, target_position: Vector2)");
+	p_file->store_line("signal interacted(target: Node)");
+	p_file->store_line("signal dash_started()");
+	p_file->store_line("signal dash_ended()");
+	p_file->store_line("");
+	p_file->store_line("func _ready():");
+	p_file->store_line("\t# Ensure we have required components");
+	p_file->store_line("\tif not stats:");
+	p_file->store_line("\t\tstats = PlayerStats.new()");
+	p_file->store_line("\t\tadd_child(stats)");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Connect to stat signals for UI updates");
+	p_file->store_line("\tstats.stat_depleted.connect(_on_stat_depleted)");
+	p_file->store_line("");
+	p_file->store_line("func _physics_process(delta: float):");
+	p_file->store_line("\tif stats.is_dead:");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle dash");
+	p_file->store_line("\tif is_dashing:");
+	p_file->store_line("\t\t_handle_dash(delta)");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Update cooldowns");
+	p_file->store_line("\tif dash_cooldown_timer > 0:");
+	p_file->store_line("\t\tdash_cooldown_timer -= delta");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle input");
+	p_file->store_line("\t_handle_movement_input(delta)");
+	p_file->store_line("\t_handle_action_input()");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Apply movement");
+	p_file->store_line("\tmove_and_slide()");
+	p_file->store_line("");
+	p_file->store_line("func _handle_movement_input(delta: float):");
+	p_file->store_line("\t# Get input direction (4-directional)");
+	p_file->store_line("\tvar input_dir = Vector2.ZERO");
+	p_file->store_line("\t");
+	p_file->store_line("\tif Input.is_action_pressed(\"move_up\") or Input.is_action_pressed(\"ui_up\"):");
+	p_file->store_line("\t\tinput_dir.y -= 1");
+	p_file->store_line("\tif Input.is_action_pressed(\"move_down\") or Input.is_action_pressed(\"ui_down\"):");
+	p_file->store_line("\t\tinput_dir.y += 1");
+	p_file->store_line("\tif Input.is_action_pressed(\"move_left\") or Input.is_action_pressed(\"ui_left\"):");
+	p_file->store_line("\t\tinput_dir.x -= 1");
+	p_file->store_line("\tif Input.is_action_pressed(\"move_right\") or Input.is_action_pressed(\"ui_right\"):");
+	p_file->store_line("\t\tinput_dir.x += 1");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Prioritize one direction for 4-directional movement");
+	p_file->store_line("\tif input_dir.x != 0:");
+	p_file->store_line("\t\tinput_dir.y = 0");
+	p_file->store_line("\t");
+	p_file->store_line("\tcurrent_direction = input_dir");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle sprinting");
+	p_file->store_line("\tis_sprinting = Input.is_action_pressed(\"sprint\") and input_dir != Vector2.ZERO");
+	p_file->store_line("\tif is_sprinting and not stats.use_stamina(sprint_stamina_cost * delta):");
+	p_file->store_line("\t\tis_sprinting = false");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Calculate speed");
+	p_file->store_line("\tvar current_speed = sprint_speed if is_sprinting else base_speed");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Apply velocity");
+	p_file->store_line("\tvelocity = input_dir * current_speed");
+	p_file->store_line("");
+	p_file->store_line("func _handle_action_input():");
+	p_file->store_line("\t# Attack");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"attack\"):");
+	p_file->store_line("\t\tperform_attack()");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Ranged attack");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"ranged_attack\"):");
+	p_file->store_line("\t\tperform_ranged_attack()");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Dash");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"dash\"):");
+	p_file->store_line("\t\tperform_dash()");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Interact");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"interact\"):");
+	p_file->store_line("\t\tperform_interaction()");
+	p_file->store_line("");
+	p_file->store_line("func perform_attack():");
+	p_file->store_line("\tif not stats.use_stamina(attack_stamina_cost):");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Calculate attack position based on direction");
+	p_file->store_line("\tvar attack_pos = global_position");
+	p_file->store_line("\tif current_direction != Vector2.ZERO:");
+	p_file->store_line("\t\tattack_pos += current_direction * attack_range");
+	p_file->store_line("\telse:");
+	p_file->store_line("\t\tattack_pos += Vector2.DOWN * attack_range  # Default direction");
+	p_file->store_line("\t");
+	p_file->store_line("\tattacked.emit(attack_damage, attack_pos)");
+	p_file->store_line("");
+	p_file->store_line("func perform_ranged_attack():");
+	p_file->store_line("\tif not stats.use_mana(ranged_attack_mana_cost):");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Calculate target position");
+	p_file->store_line("\tvar target_pos = global_position");
+	p_file->store_line("\tif current_direction != Vector2.ZERO:");
+	p_file->store_line("\t\ttarget_pos += current_direction * ranged_attack_range");
+	p_file->store_line("\telse:");
+	p_file->store_line("\t\ttarget_pos += Vector2.DOWN * ranged_attack_range  # Default direction");
+	p_file->store_line("\t");
+	p_file->store_line("\tranged_attacked.emit(ranged_attack_damage, global_position, target_pos)");
+	p_file->store_line("");
+	p_file->store_line("func perform_dash():");
+	p_file->store_line("\tif is_dashing or dash_cooldown_timer > 0:");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\tif not stats.use_stamina(dash_stamina_cost):");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Calculate dash direction");
+	p_file->store_line("\tvar dash_dir = current_direction");
+	p_file->store_line("\tif dash_dir == Vector2.ZERO:");
+	p_file->store_line("\t\tdash_dir = Vector2.DOWN  # Default direction");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Set up dash");
+	p_file->store_line("\tis_dashing = true");
+	p_file->store_line("\tdash_timer = dash_duration");
+	p_file->store_line("\tdash_cooldown_timer = dash_cooldown");
+	p_file->store_line("\tdash_start_pos = global_position");
+	p_file->store_line("\tdash_target_pos = global_position + dash_dir * dash_distance");
+	p_file->store_line("\t");
+	p_file->store_line("\tdash_started.emit()");
+	p_file->store_line("");
+	p_file->store_line("func _handle_dash(delta: float):");
+	p_file->store_line("\tdash_timer -= delta");
+	p_file->store_line("\t");
+	p_file->store_line("\tif dash_timer <= 0:");
+	p_file->store_line("\t\tis_dashing = false");
+	p_file->store_line("\t\tglobal_position = dash_target_pos");
+	p_file->store_line("\t\tvelocity = Vector2.ZERO");
+	p_file->store_line("\t\tdash_ended.emit()");
+	p_file->store_line("\telse:");
+	p_file->store_line("\t\t# Interpolate position during dash");
+	p_file->store_line("\t\tvar progress = 1.0 - (dash_timer / dash_duration)");
+	p_file->store_line("\t\tglobal_position = dash_start_pos.lerp(dash_target_pos, progress)");
+	p_file->store_line("\t\tvelocity = Vector2.ZERO");
+	p_file->store_line("");
+	p_file->store_line("func perform_interaction():");
+	p_file->store_line("\t# Find interactable objects in range");
+	p_file->store_line("\tvar space_state = get_world_2d().direct_space_state");
+	p_file->store_line("\tvar query = PhysicsPointQueryParameters2D.new()");
+	p_file->store_line("\tquery.position = global_position");
+	p_file->store_line("\tquery.collision_mask = 1  # Adjust collision mask as needed");
+	p_file->store_line("\t");
+	p_file->store_line("\tvar results = space_state.intersect_point(query, 10)");
+	p_file->store_line("\tfor result in results:");
+	p_file->store_line("\t\tvar collider = result.collider");
+	p_file->store_line("\t\tif collider.has_method(\"interact\"):");
+	p_file->store_line("\t\t\tvar distance = global_position.distance_to(collider.global_position)");
+	p_file->store_line("\t\t\tif distance <= interaction_range:");
+	p_file->store_line("\t\t\t\tinteracted.emit(collider)");
+	p_file->store_line("\t\t\t\tcollider.interact()");
+	p_file->store_line("\t\t\t\tbreak");
+	p_file->store_line("");
+	p_file->store_line("func _on_stat_depleted(stat_name: String):");
+	p_file->store_line("\tif stat_name == \"health\":");
+	p_file->store_line("\t\t# Handle death");
+	p_file->store_line("\t\tvelocity = Vector2.ZERO");
+	p_file->store_line("\t\tprint(\"Player died!\")");
+	p_file->store_line("\telif stat_name == \"stamina\":");
+	p_file->store_line("\t\t# Handle stamina depletion");
+	p_file->store_line("\t\tis_sprinting = false");
+	p_file->store_line("\t\tprint(\"Out of stamina!\")");
+}
+
+void ProjectDialog::_create_2d_topdown_8dir_controller(Ref<FileAccess> p_file) {
+	p_file->store_line("# PlayerController2DTopdown8Dir.gd");
+	p_file->store_line("# Generated by Lupine Engine - 2D Top-down Player Controller (8-Direction)");
+	p_file->store_line("# 8-directional movement with health, stamina, combat, and interaction");
+	p_file->store_line("");
+	p_file->store_line("extends CharacterBody2D");
+	p_file->store_line("class_name PlayerController2DTopdown8Dir");
+	p_file->store_line("");
+	p_file->store_line("# Movement settings");
+	p_file->store_line("@export var base_speed: float = 200.0");
+	p_file->store_line("@export var sprint_speed: float = 350.0");
+	p_file->store_line("@export var sprint_stamina_cost: float = 30.0");
+	p_file->store_line("");
+	p_file->store_line("# Combat and other settings (same as 4-directional)");
+	p_file->store_line("@export var attack_damage: float = 25.0");
+	p_file->store_line("@export var attack_range: float = 50.0");
+	p_file->store_line("@export var attack_stamina_cost: float = 15.0");
+	p_file->store_line("@export var dash_distance: float = 100.0");
+	p_file->store_line("@export var dash_duration: float = 0.2");
+	p_file->store_line("@export var dash_stamina_cost: float = 20.0");
+	p_file->store_line("@export var interaction_range: float = 80.0");
+	p_file->store_line("");
+	p_file->store_line("# Node references");
+	p_file->store_line("@onready var stats: PlayerStats = $PlayerStats");
+	p_file->store_line("@onready var sprite: Sprite2D = $Sprite2D");
+	p_file->store_line("");
+	p_file->store_line("# State variables");
+	p_file->store_line("var current_direction: Vector2 = Vector2.ZERO");
+	p_file->store_line("var is_sprinting: bool = false");
+	p_file->store_line("var is_dashing: bool = false");
+	p_file->store_line("var dash_timer: float = 0.0");
+	p_file->store_line("var dash_cooldown_timer: float = 0.0");
+	p_file->store_line("");
+	p_file->store_line("func _ready():");
+	p_file->store_line("\tif not stats:");
+	p_file->store_line("\t\tstats = PlayerStats.new()");
+	p_file->store_line("\t\tadd_child(stats)");
+	p_file->store_line("");
+	p_file->store_line("func _physics_process(delta: float):");
+	p_file->store_line("\tif stats.is_dead or is_dashing:");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle input and movement (8-directional)");
+	p_file->store_line("\tvar input_dir = Vector2.ZERO");
+	p_file->store_line("\t");
+	p_file->store_line("\tif Input.is_action_pressed(\"move_up\"):");
+	p_file->store_line("\t\tinput_dir.y -= 1");
+	p_file->store_line("\tif Input.is_action_pressed(\"move_down\"):");
+	p_file->store_line("\t\tinput_dir.y += 1");
+	p_file->store_line("\tif Input.is_action_pressed(\"move_left\"):");
+	p_file->store_line("\t\tinput_dir.x -= 1");
+	p_file->store_line("\tif Input.is_action_pressed(\"move_right\"):");
+	p_file->store_line("\t\tinput_dir.x += 1");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Normalize for 8-directional movement");
+	p_file->store_line("\tinput_dir = input_dir.normalized()");
+	p_file->store_line("\tcurrent_direction = input_dir");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle sprinting");
+	p_file->store_line("\tis_sprinting = Input.is_action_pressed(\"sprint\") and input_dir != Vector2.ZERO");
+	p_file->store_line("\tif is_sprinting and not stats.use_stamina(sprint_stamina_cost * delta):");
+	p_file->store_line("\t\tis_sprinting = false");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Apply movement");
+	p_file->store_line("\tvar current_speed = sprint_speed if is_sprinting else base_speed");
+	p_file->store_line("\tvelocity = input_dir * current_speed");
+	p_file->store_line("\tmove_and_slide()");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle actions");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"attack\"):");
+	p_file->store_line("\t\tperform_attack()");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"dash\"):");
+	p_file->store_line("\t\tperform_dash()");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"interact\"):");
+	p_file->store_line("\t\tperform_interaction()");
+	p_file->store_line("");
+	p_file->store_line("# Attack, dash, and interaction methods (similar to 4-directional)");
+	p_file->store_line("func perform_attack():");
+	p_file->store_line("\tif stats.use_stamina(attack_stamina_cost):");
+	p_file->store_line("\t\tvar attack_pos = global_position + current_direction * attack_range");
+	p_file->store_line("\t\tprint(\"Attack at: \", attack_pos)");
+	p_file->store_line("");
+	p_file->store_line("func perform_dash():");
+	p_file->store_line("\tif not is_dashing and stats.use_stamina(dash_stamina_cost):");
+	p_file->store_line("\t\tvar dash_dir = current_direction if current_direction != Vector2.ZERO else Vector2.DOWN");
+	p_file->store_line("\t\tglobal_position += dash_dir * dash_distance");
+	p_file->store_line("\t\tprint(\"Dashed!\")");
+	p_file->store_line("");
+	p_file->store_line("func perform_interaction():");
+	p_file->store_line("\tprint(\"Interaction attempted\")");
+}
+
+void ProjectDialog::_create_2d_platformer_controller(Ref<FileAccess> p_file) {
+	p_file->store_line("# PlayerController2DPlatformer.gd");
+	p_file->store_line("# Generated by Lupine Engine - 2D Platformer Player Controller");
+	p_file->store_line("# Side-scrolling platformer with jumping, health, stamina, combat, and interaction");
+	p_file->store_line("");
+	p_file->store_line("extends CharacterBody2D");
+	p_file->store_line("class_name PlayerController2DPlatformer");
+	p_file->store_line("");
+	p_file->store_line("# Movement settings");
+	p_file->store_line("@export var base_speed: float = 200.0");
+	p_file->store_line("@export var sprint_speed: float = 350.0");
+	p_file->store_line("@export var jump_velocity: float = -400.0");
+	p_file->store_line("@export var gravity: float = 980.0");
+	p_file->store_line("@export var sprint_stamina_cost: float = 30.0");
+	p_file->store_line("@export var jump_stamina_cost: float = 10.0");
+	p_file->store_line("");
+	p_file->store_line("# Combat settings");
+	p_file->store_line("@export var attack_damage: float = 25.0");
+	p_file->store_line("@export var attack_range: float = 50.0");
+	p_file->store_line("@export var attack_stamina_cost: float = 15.0");
+	p_file->store_line("@export var dash_distance: float = 100.0");
+	p_file->store_line("@export var dash_stamina_cost: float = 20.0");
+	p_file->store_line("@export var interaction_range: float = 80.0");
+	p_file->store_line("");
+	p_file->store_line("# Node references");
+	p_file->store_line("@onready var stats: PlayerStats = $PlayerStats");
+	p_file->store_line("@onready var sprite: Sprite2D = $Sprite2D");
+	p_file->store_line("");
+	p_file->store_line("# State variables");
+	p_file->store_line("var facing_direction: int = 1  # 1 for right, -1 for left");
+	p_file->store_line("var is_sprinting: bool = false");
+	p_file->store_line("var is_dashing: bool = false");
+	p_file->store_line("var coyote_time: float = 0.1");
+	p_file->store_line("var coyote_timer: float = 0.0");
+	p_file->store_line("var jump_buffer_time: float = 0.1");
+	p_file->store_line("var jump_buffer_timer: float = 0.0");
+	p_file->store_line("");
+	p_file->store_line("func _ready():");
+	p_file->store_line("\tif not stats:");
+	p_file->store_line("\t\tstats = PlayerStats.new()");
+	p_file->store_line("\t\tadd_child(stats)");
+	p_file->store_line("");
+	p_file->store_line("func _physics_process(delta: float):");
+	p_file->store_line("\tif stats.is_dead:");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle gravity");
+	p_file->store_line("\tif not is_on_floor():");
+	p_file->store_line("\t\tvelocity.y += gravity * delta");
+	p_file->store_line("\t\tcoyote_timer -= delta");
+	p_file->store_line("\telse:");
+	p_file->store_line("\t\tcoyote_timer = coyote_time");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle jump buffer");
+	p_file->store_line("\tif jump_buffer_timer > 0:");
+	p_file->store_line("\t\tjump_buffer_timer -= delta");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle horizontal movement");
+	p_file->store_line("\tvar input_dir = Input.get_axis(\"move_left\", \"move_right\")");
+	p_file->store_line("\t");
+	p_file->store_line("\tif input_dir != 0:");
+	p_file->store_line("\t\tfacing_direction = int(sign(input_dir))");
+	p_file->store_line("\t\tsprite.scale.x = facing_direction");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle sprinting");
+	p_file->store_line("\tis_sprinting = Input.is_action_pressed(\"sprint\") and input_dir != 0");
+	p_file->store_line("\tif is_sprinting and not stats.use_stamina(sprint_stamina_cost * delta):");
+	p_file->store_line("\t\tis_sprinting = false");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Apply horizontal movement");
+	p_file->store_line("\tvar current_speed = sprint_speed if is_sprinting else base_speed");
+	p_file->store_line("\tvelocity.x = input_dir * current_speed");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle jumping");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"jump\"):");
+	p_file->store_line("\t\tjump_buffer_timer = jump_buffer_time");
+	p_file->store_line("\t");
+	p_file->store_line("\tif jump_buffer_timer > 0 and (is_on_floor() or coyote_timer > 0):");
+	p_file->store_line("\t\tif stats.use_stamina(jump_stamina_cost):");
+	p_file->store_line("\t\t\tvelocity.y = jump_velocity");
+	p_file->store_line("\t\t\tjump_buffer_timer = 0");
+	p_file->store_line("\t\t\tcoyote_timer = 0");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle actions");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"attack\"):");
+	p_file->store_line("\t\tperform_attack()");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"dash\"):");
+	p_file->store_line("\t\tperform_dash()");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"interact\"):");
+	p_file->store_line("\t\tperform_interaction()");
+	p_file->store_line("\t");
+	p_file->store_line("\tmove_and_slide()");
+	p_file->store_line("");
+	p_file->store_line("func perform_attack():");
+	p_file->store_line("\tif stats.use_stamina(attack_stamina_cost):");
+	p_file->store_line("\t\tvar attack_pos = global_position + Vector2(facing_direction * attack_range, 0)");
+	p_file->store_line("\t\tprint(\"Attack at: \", attack_pos)");
+	p_file->store_line("");
+	p_file->store_line("func perform_dash():");
+	p_file->store_line("\tif not is_dashing and stats.use_stamina(dash_stamina_cost):");
+	p_file->store_line("\t\tglobal_position.x += facing_direction * dash_distance");
+	p_file->store_line("\t\tprint(\"Dashed!\")");
+	p_file->store_line("");
+	p_file->store_line("func perform_interaction():");
+	p_file->store_line("\tprint(\"Interaction attempted\")");
+}
+
+void ProjectDialog::_create_3d_third_person_controller(Ref<FileAccess> p_file) {
+	p_file->store_line("# PlayerController3DThirdPerson.gd");
+	p_file->store_line("# Generated by Lupine Engine - 3D Third-Person Player Controller");
+	p_file->store_line("# Third-person 3D movement with camera follow, health, stamina, and combat");
+	p_file->store_line("");
+	p_file->store_line("extends CharacterBody3D");
+	p_file->store_line("class_name PlayerController3DThirdPerson");
+	p_file->store_line("");
+	p_file->store_line("# Movement settings");
+	p_file->store_line("@export var base_speed: float = 5.0");
+	p_file->store_line("@export var sprint_speed: float = 8.0");
+	p_file->store_line("@export var jump_velocity: float = 8.0");
+	p_file->store_line("@export var gravity: float = 20.0");
+	p_file->store_line("@export var sprint_stamina_cost: float = 30.0");
+	p_file->store_line("@export var jump_stamina_cost: float = 15.0");
+	p_file->store_line("");
+	p_file->store_line("# Combat settings");
+	p_file->store_line("@export var attack_damage: float = 25.0");
+	p_file->store_line("@export var attack_range: float = 2.0");
+	p_file->store_line("@export var attack_stamina_cost: float = 15.0");
+	p_file->store_line("@export var dash_distance: float = 5.0");
+	p_file->store_line("@export var dash_stamina_cost: float = 20.0");
+	p_file->store_line("@export var interaction_range: float = 3.0");
+	p_file->store_line("");
+	p_file->store_line("# Camera settings");
+	p_file->store_line("@export var mouse_sensitivity: float = 0.002");
+	p_file->store_line("@export var camera_distance: float = 5.0");
+	p_file->store_line("@export var camera_height: float = 2.0");
+	p_file->store_line("");
+	p_file->store_line("# Node references");
+	p_file->store_line("@onready var stats: PlayerStats = $PlayerStats");
+	p_file->store_line("@onready var mesh: MeshInstance3D = $MeshInstance3D");
+	p_file->store_line("@onready var camera_pivot: Node3D = $CameraPivot");
+	p_file->store_line("@onready var camera: Camera3D = $CameraPivot/Camera3D");
+	p_file->store_line("");
+	p_file->store_line("# State variables");
+	p_file->store_line("var camera_rotation: Vector2 = Vector2.ZERO");
+	p_file->store_line("var is_sprinting: bool = false");
+	p_file->store_line("var is_dashing: bool = false");
+	p_file->store_line("");
+	p_file->store_line("func _ready():");
+	p_file->store_line("\tif not stats:");
+	p_file->store_line("\t\tstats = PlayerStats.new()");
+	p_file->store_line("\t\tadd_child(stats)");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Set up camera");
+	p_file->store_line("\tcamera.position = Vector3(0, camera_height, camera_distance)");
+	p_file->store_line("\tcamera.look_at(global_position, Vector3.UP)");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Capture mouse");
+	p_file->store_line("\tInput.mouse_mode = Input.MOUSE_MODE_CAPTURED");
+	p_file->store_line("");
+	p_file->store_line("func _input(event):");
+	p_file->store_line("\tif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:");
+	p_file->store_line("\t\tcamera_rotation.x -= event.relative.y * mouse_sensitivity");
+	p_file->store_line("\t\tcamera_rotation.y -= event.relative.x * mouse_sensitivity");
+	p_file->store_line("\t\tcamera_rotation.x = clamp(camera_rotation.x, -PI/3, PI/3)");
+	p_file->store_line("\t");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"ui_cancel\"):");
+	p_file->store_line("\t\tInput.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED");
+	p_file->store_line("");
+	p_file->store_line("func _physics_process(delta: float):");
+	p_file->store_line("\tif stats.is_dead:");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle gravity");
+	p_file->store_line("\tif not is_on_floor():");
+	p_file->store_line("\t\tvelocity.y -= gravity * delta");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle jumping");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"jump\") and is_on_floor():");
+	p_file->store_line("\t\tif stats.use_stamina(jump_stamina_cost):");
+	p_file->store_line("\t\t\tvelocity.y = jump_velocity");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle movement");
+	p_file->store_line("\tvar input_dir = Input.get_vector(\"move_left\", \"move_right\", \"move_up\", \"move_down\")");
+	p_file->store_line("\tvar direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Rotate direction based on camera");
+	p_file->store_line("\tif direction != Vector3.ZERO:");
+	p_file->store_line("\t\tdirection = direction.rotated(Vector3.UP, camera_rotation.y)");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle sprinting");
+	p_file->store_line("\tis_sprinting = Input.is_action_pressed(\"sprint\") and direction != Vector3.ZERO");
+	p_file->store_line("\tif is_sprinting and not stats.use_stamina(sprint_stamina_cost * delta):");
+	p_file->store_line("\t\tis_sprinting = false");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Apply movement");
+	p_file->store_line("\tvar current_speed = sprint_speed if is_sprinting else base_speed");
+	p_file->store_line("\tvelocity.x = direction.x * current_speed");
+	p_file->store_line("\tvelocity.z = direction.z * current_speed");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Rotate player to face movement direction");
+	p_file->store_line("\tif direction != Vector3.ZERO:");
+	p_file->store_line("\t\tlook_at(global_position + direction, Vector3.UP)");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Update camera");
+	p_file->store_line("\tcamera_pivot.rotation.x = camera_rotation.x");
+	p_file->store_line("\tcamera_pivot.rotation.y = camera_rotation.y");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle actions");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"attack\"):");
+	p_file->store_line("\t\tperform_attack()");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"dash\"):");
+	p_file->store_line("\t\tperform_dash()");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"interact\"):");
+	p_file->store_line("\t\tperform_interaction()");
+	p_file->store_line("\t");
+	p_file->store_line("\tmove_and_slide()");
+	p_file->store_line("");
+	p_file->store_line("func perform_attack():");
+	p_file->store_line("\tif stats.use_stamina(attack_stamina_cost):");
+	p_file->store_line("\t\tvar attack_pos = global_position + -transform.basis.z * attack_range");
+	p_file->store_line("\t\tprint(\"3D Attack at: \", attack_pos)");
+	p_file->store_line("");
+	p_file->store_line("func perform_dash():");
+	p_file->store_line("\tif not is_dashing and stats.use_stamina(dash_stamina_cost):");
+	p_file->store_line("\t\tvar dash_dir = -transform.basis.z");
+	p_file->store_line("\t\tglobal_position += dash_dir * dash_distance");
+	p_file->store_line("\t\tprint(\"3D Dashed!\")");
+	p_file->store_line("");
+	p_file->store_line("func perform_interaction():");
+	p_file->store_line("\tprint(\"3D Interaction attempted\")");
+}
+
+void ProjectDialog::_create_3d_first_person_controller(Ref<FileAccess> p_file) {
+	p_file->store_line("# PlayerController3DFirstPerson.gd");
+	p_file->store_line("# Generated by Lupine Engine - 3D First-Person Player Controller");
+	p_file->store_line("# First-person 3D movement with mouse look, health, stamina, and combat");
+	p_file->store_line("");
+	p_file->store_line("extends CharacterBody3D");
+	p_file->store_line("class_name PlayerController3DFirstPerson");
+	p_file->store_line("");
+	p_file->store_line("# Movement settings");
+	p_file->store_line("@export var base_speed: float = 5.0");
+	p_file->store_line("@export var sprint_speed: float = 8.0");
+	p_file->store_line("@export var jump_velocity: float = 8.0");
+	p_file->store_line("@export var gravity: float = 20.0");
+	p_file->store_line("@export var sprint_stamina_cost: float = 30.0");
+	p_file->store_line("@export var jump_stamina_cost: float = 15.0");
+	p_file->store_line("");
+	p_file->store_line("# Combat settings");
+	p_file->store_line("@export var attack_damage: float = 25.0");
+	p_file->store_line("@export var attack_range: float = 2.0");
+	p_file->store_line("@export var attack_stamina_cost: float = 15.0");
+	p_file->store_line("@export var dash_distance: float = 5.0");
+	p_file->store_line("@export var dash_stamina_cost: float = 20.0");
+	p_file->store_line("@export var interaction_range: float = 3.0");
+	p_file->store_line("");
+	p_file->store_line("# Camera settings");
+	p_file->store_line("@export var mouse_sensitivity: float = 0.002");
+	p_file->store_line("@export var camera_height: float = 1.8");
+	p_file->store_line("");
+	p_file->store_line("# Node references");
+	p_file->store_line("@onready var stats: PlayerStats = $PlayerStats");
+	p_file->store_line("@onready var camera: Camera3D = $Camera3D");
+	p_file->store_line("@onready var collision: CollisionShape3D = $CollisionShape3D");
+	p_file->store_line("");
+	p_file->store_line("# State variables");
+	p_file->store_line("var camera_rotation: Vector2 = Vector2.ZERO");
+	p_file->store_line("var is_sprinting: bool = false");
+	p_file->store_line("var is_dashing: bool = false");
+	p_file->store_line("");
+	p_file->store_line("func _ready():");
+	p_file->store_line("\tif not stats:");
+	p_file->store_line("\t\tstats = PlayerStats.new()");
+	p_file->store_line("\t\tadd_child(stats)");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Set up camera");
+	p_file->store_line("\tcamera.position.y = camera_height");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Capture mouse");
+	p_file->store_line("\tInput.mouse_mode = Input.MOUSE_MODE_CAPTURED");
+	p_file->store_line("");
+	p_file->store_line("func _input(event):");
+	p_file->store_line("\tif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:");
+	p_file->store_line("\t\tcamera_rotation.x -= event.relative.y * mouse_sensitivity");
+	p_file->store_line("\t\tcamera_rotation.y -= event.relative.x * mouse_sensitivity");
+	p_file->store_line("\t\tcamera_rotation.x = clamp(camera_rotation.x, -PI/2, PI/2)");
+	p_file->store_line("\t");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"ui_cancel\"):");
+	p_file->store_line("\t\tInput.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED");
+	p_file->store_line("");
+	p_file->store_line("func _physics_process(delta: float):");
+	p_file->store_line("\tif stats.is_dead:");
+	p_file->store_line("\t\treturn");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Apply camera rotation");
+	p_file->store_line("\tcamera.rotation.x = camera_rotation.x");
+	p_file->store_line("\trotation.y = camera_rotation.y");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle gravity");
+	p_file->store_line("\tif not is_on_floor():");
+	p_file->store_line("\t\tvelocity.y -= gravity * delta");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle jumping");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"jump\") and is_on_floor():");
+	p_file->store_line("\t\tif stats.use_stamina(jump_stamina_cost):");
+	p_file->store_line("\t\t\tvelocity.y = jump_velocity");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle movement");
+	p_file->store_line("\tvar input_dir = Input.get_vector(\"move_left\", \"move_right\", \"move_up\", \"move_down\")");
+	p_file->store_line("\tvar direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle sprinting");
+	p_file->store_line("\tis_sprinting = Input.is_action_pressed(\"sprint\") and direction != Vector3.ZERO");
+	p_file->store_line("\tif is_sprinting and not stats.use_stamina(sprint_stamina_cost * delta):");
+	p_file->store_line("\t\tis_sprinting = false");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Apply movement");
+	p_file->store_line("\tvar current_speed = sprint_speed if is_sprinting else base_speed");
+	p_file->store_line("\tvelocity.x = direction.x * current_speed");
+	p_file->store_line("\tvelocity.z = direction.z * current_speed");
+	p_file->store_line("\t");
+	p_file->store_line("\t# Handle actions");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"attack\"):");
+	p_file->store_line("\t\tperform_attack()");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"dash\"):");
+	p_file->store_line("\t\tperform_dash()");
+	p_file->store_line("\tif Input.is_action_just_pressed(\"interact\"):");
+	p_file->store_line("\t\tperform_interaction()");
+	p_file->store_line("\t");
+	p_file->store_line("\tmove_and_slide()");
+	p_file->store_line("");
+	p_file->store_line("func perform_attack():");
+	p_file->store_line("\tif stats.use_stamina(attack_stamina_cost):");
+	p_file->store_line("\t\t# Raycast from camera to detect targets");
+	p_file->store_line("\t\tvar space_state = get_world_3d().direct_space_state");
+	p_file->store_line("\t\tvar query = PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position + -camera.global_transform.basis.z * attack_range)");
+	p_file->store_line("\t\tvar result = space_state.intersect_ray(query)");
+	p_file->store_line("\t\tif result:");
+	p_file->store_line("\t\t\tprint(\"FPS Attack hit: \", result.collider)");
+	p_file->store_line("\t\telse:");
+	p_file->store_line("\t\t\tprint(\"FPS Attack missed\")");
+	p_file->store_line("");
+	p_file->store_line("func perform_dash():");
+	p_file->store_line("\tif not is_dashing and stats.use_stamina(dash_stamina_cost):");
+	p_file->store_line("\t\tvar dash_dir = -transform.basis.z");
+	p_file->store_line("\t\tglobal_position += dash_dir * dash_distance");
+	p_file->store_line("\t\tprint(\"FPS Dashed!\")");
+	p_file->store_line("");
+	p_file->store_line("func perform_interaction():");
+	p_file->store_line("\t# Raycast from camera to detect interactables");
+	p_file->store_line("\tvar space_state = get_world_3d().direct_space_state");
+	p_file->store_line("\tvar query = PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position + -camera.global_transform.basis.z * interaction_range)");
+	p_file->store_line("\tvar result = space_state.intersect_ray(query)");
+	p_file->store_line("\tif result and result.collider.has_method(\"interact\"):");
+	p_file->store_line("\t\tresult.collider.interact()");
+	p_file->store_line("\t\tprint(\"FPS Interacted with: \", result.collider)");
+	p_file->store_line("\telse:");
+	p_file->store_line("\t\tprint(\"FPS No interaction target\")");
+}
+
+void ProjectDialog::_create_2d_player_scene(Ref<FileAccess> p_file, const String &p_scene_name) {
+	p_file->store_line("[gd_scene load_steps=4 format=3 uid=\"uid://generated_by_lupine\"]");
+	p_file->store_line("");
+	p_file->store_line("[ext_resource type=\"Script\" path=\"scripts/" + p_scene_name.replace("2D", "2D") + ".gd\" id=\"1_player_script\"]");
+	p_file->store_line("[ext_resource type=\"Script\" path=\"scripts/PlayerStats.gd\" id=\"2_stats_script\"]");
+	p_file->store_line("");
+	p_file->store_line("[sub_resource type=\"RectangleShape2D\" id=\"RectangleShape2D_1\"]");
+	p_file->store_line("size = Vector2(32, 48)");
+	p_file->store_line("");
+	p_file->store_line("[sub_resource type=\"CircleShape2D\" id=\"CircleShape2D_1\"]");
+	p_file->store_line("radius = 40.0");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"" + p_scene_name + "\" type=\"CharacterBody2D\"]");
+	p_file->store_line("script = ExtResource(\"1_player_script\")");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"PlayerStats\" type=\"Node\" parent=\".\"]");
+	p_file->store_line("script = ExtResource(\"2_stats_script\")");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"Sprite2D\" type=\"Sprite2D\" parent=\".\"]");
+	p_file->store_line("modulate = Color(0.5, 0.8, 1, 1)");
+	p_file->store_line("texture = preload(\"res://icon.svg\")");
+	p_file->store_line("scale = Vector2(0.25, 0.375)");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\".\"]");
+	p_file->store_line("shape = SubResource(\"RectangleShape2D_1\")");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"InteractionArea\" type=\"Area2D\" parent=\".\"]");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\"InteractionArea\"]");
+	p_file->store_line("shape = SubResource(\"CircleShape2D_1\")");
+}
+
+void ProjectDialog::_create_3d_player_scene(Ref<FileAccess> p_file, const String &p_scene_name) {
+	p_file->store_line("[gd_scene load_steps=5 format=3 uid=\"uid://generated_by_lupine_3d\"]");
+	p_file->store_line("");
+	p_file->store_line("[ext_resource type=\"Script\" path=\"scripts/" + p_scene_name.replace("3D", "3D") + ".gd\" id=\"1_player_script\"]");
+	p_file->store_line("[ext_resource type=\"Script\" path=\"scripts/PlayerStats.gd\" id=\"2_stats_script\"]");
+	p_file->store_line("");
+	p_file->store_line("[sub_resource type=\"CapsuleShape3D\" id=\"CapsuleShape3D_1\"]");
+	p_file->store_line("radius = 0.4");
+	p_file->store_line("height = 1.8");
+	p_file->store_line("");
+	p_file->store_line("[sub_resource type=\"CapsuleMesh\" id=\"CapsuleMesh_1\"]");
+	p_file->store_line("radius = 0.4");
+	p_file->store_line("height = 1.8");
+	p_file->store_line("");
+	p_file->store_line("[sub_resource type=\"StandardMaterial3D\" id=\"StandardMaterial3D_1\"]");
+	p_file->store_line("albedo_color = Color(0.5, 0.8, 1, 1)");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"" + p_scene_name + "\" type=\"CharacterBody3D\"]");
+	p_file->store_line("script = ExtResource(\"1_player_script\")");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"PlayerStats\" type=\"Node\" parent=\".\"]");
+	p_file->store_line("script = ExtResource(\"2_stats_script\")");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"MeshInstance3D\" type=\"MeshInstance3D\" parent=\".\"]");
+	p_file->store_line("mesh = SubResource(\"CapsuleMesh_1\")");
+	p_file->store_line("surface_material_override/0 = SubResource(\"StandardMaterial3D_1\")");
+	p_file->store_line("");
+	p_file->store_line("[node name=\"CollisionShape3D\" type=\"CollisionShape3D\" parent=\".\"]");
+	p_file->store_line("shape = SubResource(\"CapsuleShape3D_1\")");
+	p_file->store_line("");
+
+	if (p_scene_name.contains("ThirdPerson")) {
+		p_file->store_line("[node name=\"CameraPivot\" type=\"Node3D\" parent=\".\"]");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"Camera3D\" type=\"Camera3D\" parent=\"CameraPivot\"]");
+		p_file->store_line("transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 2, 5)");
+	} else {
+		p_file->store_line("[node name=\"Camera3D\" type=\"Camera3D\" parent=\".\"]");
+		p_file->store_line("transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)");
+	}
 }
