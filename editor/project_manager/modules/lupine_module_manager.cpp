@@ -18,6 +18,11 @@
 #include "inventory_system_module.h"
 #include "enemy_ai_module.h"
 #include "ability_system_module.h"
+#include "topdown_rpg_main_scene_module.h"
+#include "topdown_enemy_types_module.h"
+#include "rpg_world_elements_module.h"
+#include "topdown_combat_module.h"
+#include "rpg_progression_module.h"
 #include "collectible_system_module.h"
 #include "level_progression_module.h"
 #include "platformer_elements_module.h"
@@ -33,6 +38,19 @@
 #include "puzzle_system_3d_module.h"
 #include "enemy_3d_module.h"
 #include "location_manager_3d_module.h"
+#include "jrpg_party_system_2d_module.h"
+#include "jrpg_party_system_3d_module.h"
+#include "jrpg_combat_system_module.h"
+#include "tactical_party_system_module.h"
+#include "tactical_combat_2d_module.h"
+#include "tactical_combat_3d_module.h"
+#include "relationship_system_module.h"
+#include "support_conversation_module.h"
+#include "social_interaction_module.h"
+#include "faction_reputation_module.h"
+#include "pokemon_battle_system_module.h"
+#include "monster_system_module.h"
+#include "monster_capture_system_module.h"
 
 LupineModuleManager::LupineModuleManager() {
 	initialize_modules();
@@ -57,6 +75,7 @@ void LupineModuleManager::initialize_modules() {
 	_register_3d_platformer_modules();
 	_register_visual_novel_modules();
 	_register_ui_systems();
+	_register_monster_capture_modules();
 }
 
 void LupineModuleManager::_register_core_systems() {
@@ -336,6 +355,186 @@ void LupineModuleManager::_register_rpg_systems() {
 	mobs_mod.category = passive_mobs->get_module_category();
 	mobs_mod.files_to_create = passive_mobs->get_files_to_create();
 	available_modules.push_back(mobs_mod);
+
+	// Top-down RPG Main Scene
+	TopdownRPGMainSceneModule* topdown_main = new TopdownRPGMainSceneModule();
+	register_module("topdown_rpg_main_scene", topdown_main);
+
+	ProjectModule topdown_main_mod;
+	topdown_main_mod.id = "topdown_rpg_main_scene";
+	topdown_main_mod.name = topdown_main->get_module_name();
+	topdown_main_mod.description = topdown_main->get_module_description();
+	topdown_main_mod.category = topdown_main->get_module_category();
+	topdown_main_mod.files_to_create = topdown_main->get_files_to_create();
+	available_modules.push_back(topdown_main_mod);
+
+	// Top-down Enemy Types
+	TopdownEnemyTypesModule* topdown_enemies = new TopdownEnemyTypesModule();
+	register_module("topdown_enemy_types", topdown_enemies);
+
+	ProjectModule topdown_enemies_mod;
+	topdown_enemies_mod.id = "topdown_enemy_types";
+	topdown_enemies_mod.name = topdown_enemies->get_module_name();
+	topdown_enemies_mod.description = topdown_enemies->get_module_description();
+	topdown_enemies_mod.category = topdown_enemies->get_module_category();
+	topdown_enemies_mod.files_to_create = topdown_enemies->get_files_to_create();
+	available_modules.push_back(topdown_enemies_mod);
+
+	// RPG World Elements
+	RPGWorldElementsModule* world_elements = new RPGWorldElementsModule();
+	register_module("rpg_world_elements", world_elements);
+
+	ProjectModule world_elements_mod;
+	world_elements_mod.id = "rpg_world_elements";
+	world_elements_mod.name = world_elements->get_module_name();
+	world_elements_mod.description = world_elements->get_module_description();
+	world_elements_mod.category = world_elements->get_module_category();
+	world_elements_mod.files_to_create = world_elements->get_files_to_create();
+	available_modules.push_back(world_elements_mod);
+
+	// Top-down Combat System
+	TopdownCombatModule* topdown_combat = new TopdownCombatModule();
+	register_module("topdown_combat", topdown_combat);
+
+	ProjectModule topdown_combat_mod;
+	topdown_combat_mod.id = "topdown_combat";
+	topdown_combat_mod.name = topdown_combat->get_module_name();
+	topdown_combat_mod.description = topdown_combat->get_module_description();
+	topdown_combat_mod.category = topdown_combat->get_module_category();
+	topdown_combat_mod.files_to_create = topdown_combat->get_files_to_create();
+	available_modules.push_back(topdown_combat_mod);
+
+	// RPG Progression System
+	RPGProgressionModule* rpg_progression = new RPGProgressionModule();
+	register_module("rpg_progression", rpg_progression);
+
+	ProjectModule rpg_progression_mod;
+	rpg_progression_mod.id = "rpg_progression";
+	rpg_progression_mod.name = rpg_progression->get_module_name();
+	rpg_progression_mod.description = rpg_progression->get_module_description();
+	rpg_progression_mod.category = rpg_progression->get_module_category();
+	rpg_progression_mod.files_to_create = rpg_progression->get_files_to_create();
+	available_modules.push_back(rpg_progression_mod);
+
+	// JRPG Party System 2D
+	JRPGPartySystem2DModule* jrpg_party_2d = new JRPGPartySystem2DModule();
+	register_module("jrpg_party_system_2d", jrpg_party_2d);
+
+	ProjectModule jrpg_party_2d_mod;
+	jrpg_party_2d_mod.id = "jrpg_party_system_2d";
+	jrpg_party_2d_mod.name = jrpg_party_2d->get_module_name();
+	jrpg_party_2d_mod.description = jrpg_party_2d->get_module_description();
+	jrpg_party_2d_mod.category = jrpg_party_2d->get_module_category();
+	jrpg_party_2d_mod.files_to_create = jrpg_party_2d->get_files_to_create();
+	available_modules.push_back(jrpg_party_2d_mod);
+
+	// JRPG Party System 3D
+	JRPGPartySystem3DModule* jrpg_party_3d = new JRPGPartySystem3DModule();
+	register_module("jrpg_party_system_3d", jrpg_party_3d);
+
+	ProjectModule jrpg_party_3d_mod;
+	jrpg_party_3d_mod.id = "jrpg_party_system_3d";
+	jrpg_party_3d_mod.name = jrpg_party_3d->get_module_name();
+	jrpg_party_3d_mod.description = jrpg_party_3d->get_module_description();
+	jrpg_party_3d_mod.category = jrpg_party_3d->get_module_category();
+	jrpg_party_3d_mod.files_to_create = jrpg_party_3d->get_files_to_create();
+	available_modules.push_back(jrpg_party_3d_mod);
+
+	// JRPG Combat System
+	JRPGCombatSystemModule* jrpg_combat = new JRPGCombatSystemModule();
+	register_module("jrpg_combat_system", jrpg_combat);
+
+	ProjectModule jrpg_combat_mod;
+	jrpg_combat_mod.id = "jrpg_combat_system";
+	jrpg_combat_mod.name = jrpg_combat->get_module_name();
+	jrpg_combat_mod.description = jrpg_combat->get_module_description();
+	jrpg_combat_mod.category = jrpg_combat->get_module_category();
+	jrpg_combat_mod.files_to_create = jrpg_combat->get_files_to_create();
+	available_modules.push_back(jrpg_combat_mod);
+
+	// Tactical Party System
+	TacticalPartySystemModule* tactical_party = new TacticalPartySystemModule();
+	register_module("tactical_party_system", tactical_party);
+
+	ProjectModule tactical_party_mod;
+	tactical_party_mod.id = "tactical_party_system";
+	tactical_party_mod.name = tactical_party->get_module_name();
+	tactical_party_mod.description = tactical_party->get_module_description();
+	tactical_party_mod.category = tactical_party->get_module_category();
+	tactical_party_mod.files_to_create = tactical_party->get_files_to_create();
+	available_modules.push_back(tactical_party_mod);
+
+	// Tactical Combat 2D
+	TacticalCombat2DModule* tactical_combat_2d = new TacticalCombat2DModule();
+	register_module("tactical_combat_2d", tactical_combat_2d);
+
+	ProjectModule tactical_combat_2d_mod;
+	tactical_combat_2d_mod.id = "tactical_combat_2d";
+	tactical_combat_2d_mod.name = tactical_combat_2d->get_module_name();
+	tactical_combat_2d_mod.description = tactical_combat_2d->get_module_description();
+	tactical_combat_2d_mod.category = tactical_combat_2d->get_module_category();
+	tactical_combat_2d_mod.files_to_create = tactical_combat_2d->get_files_to_create();
+	available_modules.push_back(tactical_combat_2d_mod);
+
+	// Tactical Combat 3D
+	TacticalCombat3DModule* tactical_combat_3d = new TacticalCombat3DModule();
+	register_module("tactical_combat_3d", tactical_combat_3d);
+
+	ProjectModule tactical_combat_3d_mod;
+	tactical_combat_3d_mod.id = "tactical_combat_3d";
+	tactical_combat_3d_mod.name = tactical_combat_3d->get_module_name();
+	tactical_combat_3d_mod.description = tactical_combat_3d->get_module_description();
+	tactical_combat_3d_mod.category = tactical_combat_3d->get_module_category();
+	tactical_combat_3d_mod.files_to_create = tactical_combat_3d->get_files_to_create();
+	available_modules.push_back(tactical_combat_3d_mod);
+
+	// Relationship System
+	RelationshipSystemModule* relationship_system = new RelationshipSystemModule();
+	register_module("relationship_system", relationship_system);
+
+	ProjectModule relationship_system_mod;
+	relationship_system_mod.id = "relationship_system";
+	relationship_system_mod.name = relationship_system->get_module_name();
+	relationship_system_mod.description = relationship_system->get_module_description();
+	relationship_system_mod.category = relationship_system->get_module_category();
+	relationship_system_mod.files_to_create = relationship_system->get_files_to_create();
+	available_modules.push_back(relationship_system_mod);
+
+	// Support Conversation System
+	SupportConversationModule* support_conversation = new SupportConversationModule();
+	register_module("support_conversation_system", support_conversation);
+
+	ProjectModule support_conversation_mod;
+	support_conversation_mod.id = "support_conversation_system";
+	support_conversation_mod.name = support_conversation->get_module_name();
+	support_conversation_mod.description = support_conversation->get_module_description();
+	support_conversation_mod.category = support_conversation->get_module_category();
+	support_conversation_mod.files_to_create = support_conversation->get_files_to_create();
+	available_modules.push_back(support_conversation_mod);
+
+	// Social Interaction System
+	SocialInteractionModule* social_interaction = new SocialInteractionModule();
+	register_module("social_interaction_system", social_interaction);
+
+	ProjectModule social_interaction_mod;
+	social_interaction_mod.id = "social_interaction_system";
+	social_interaction_mod.name = social_interaction->get_module_name();
+	social_interaction_mod.description = social_interaction->get_module_description();
+	social_interaction_mod.category = social_interaction->get_module_category();
+	social_interaction_mod.files_to_create = social_interaction->get_files_to_create();
+	available_modules.push_back(social_interaction_mod);
+
+	// Faction Reputation System
+	FactionReputationModule* faction_reputation = new FactionReputationModule();
+	register_module("faction_reputation_system", faction_reputation);
+
+	ProjectModule faction_reputation_mod;
+	faction_reputation_mod.id = "faction_reputation_system";
+	faction_reputation_mod.name = faction_reputation->get_module_name();
+	faction_reputation_mod.description = faction_reputation->get_module_description();
+	faction_reputation_mod.category = faction_reputation->get_module_category();
+	faction_reputation_mod.files_to_create = faction_reputation->get_files_to_create();
+	available_modules.push_back(faction_reputation_mod);
 }
 
 void LupineModuleManager::_register_3d_platformer_modules() {
@@ -687,4 +886,42 @@ void LupineModuleManager::_register_ui_systems() {
 	hud_mod.category = hud_builder->get_module_category();
 	hud_mod.files_to_create = hud_builder->get_files_to_create();
 	available_modules.push_back(hud_mod);
+}
+
+void LupineModuleManager::_register_monster_capture_modules() {
+	// Pokemon Battle System
+	PokemonBattleSystemModule* pokemon_battle = new PokemonBattleSystemModule();
+	register_module("pokemon_battle_system", pokemon_battle);
+
+	ProjectModule pokemon_battle_mod;
+	pokemon_battle_mod.id = "pokemon_battle_system";
+	pokemon_battle_mod.name = pokemon_battle->get_module_name();
+	pokemon_battle_mod.description = pokemon_battle->get_module_description();
+	pokemon_battle_mod.category = pokemon_battle->get_module_category();
+	pokemon_battle_mod.files_to_create = pokemon_battle->get_files_to_create();
+	available_modules.push_back(pokemon_battle_mod);
+
+	// Monster System
+	MonsterSystemModule* monster_system = new MonsterSystemModule();
+	register_module("monster_system", monster_system);
+
+	ProjectModule monster_system_mod;
+	monster_system_mod.id = "monster_system";
+	monster_system_mod.name = monster_system->get_module_name();
+	monster_system_mod.description = monster_system->get_module_description();
+	monster_system_mod.category = monster_system->get_module_category();
+	monster_system_mod.files_to_create = monster_system->get_files_to_create();
+	available_modules.push_back(monster_system_mod);
+
+	// Monster Capture System
+	MonsterCaptureSystemModule* monster_capture = new MonsterCaptureSystemModule();
+	register_module("monster_capture_system", monster_capture);
+
+	ProjectModule monster_capture_mod;
+	monster_capture_mod.id = "monster_capture_system";
+	monster_capture_mod.name = monster_capture->get_module_name();
+	monster_capture_mod.description = monster_capture->get_module_description();
+	monster_capture_mod.category = monster_capture->get_module_category();
+	monster_capture_mod.files_to_create = monster_capture->get_files_to_create();
+	available_modules.push_back(monster_capture_mod);
 }

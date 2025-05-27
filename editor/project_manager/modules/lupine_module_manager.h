@@ -46,6 +46,7 @@ private:
 	void _register_3d_platformer_modules();
 	void _register_visual_novel_modules();
 	void _register_ui_systems();
+	void _register_monster_capture_modules();
 
 	// Legacy module generators
 	void _generate_legacy_script(Ref<FileAccess> p_file, const String &p_module_id, const String &p_filename);

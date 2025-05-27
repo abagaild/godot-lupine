@@ -336,6 +336,8 @@ void ProjectDialog::_setup_module_ui() {
 		module_checkbox->set_text(mod.name);
 		module_checkbox->set_tooltip_text(mod.description);
 		module_checkbox->set_toggle_mode(true);
+		// Store module ID as metadata for proper identification
+		module_checkbox->set_meta("module_id", mod.id);
 		module_checkbox->connect("toggled", callable_mp(this, &ProjectDialog::_module_toggled).bind(mod.id));
 		category_vbox->add_child(module_checkbox);
 	}
@@ -437,26 +439,21 @@ void ProjectDialog::_update_module_dependencies() {
 		if (category_vbox) {
 			for (int j = 0; j < category_vbox->get_child_count(); j++) {
 				CheckBox *checkbox = Object::cast_to<CheckBox>(category_vbox->get_child(j));
-				if (checkbox) {
-					// Find corresponding module
-					for (const ProjectModule &mod : available_modules) {
-						if (mod.name == checkbox->get_text()) {
-							checkbox->set_pressed(selected_modules.has(mod.id));
+				if (checkbox && checkbox->has_meta("module_id")) {
+					String module_id = checkbox->get_meta("module_id");
+					checkbox->set_pressed(selected_modules.has(module_id));
 
-							// Disable if it's a default module for the selected template
-							bool is_default = false;
-							if (!selected_template_id.is_empty()) {
-								for (const ProjectTemplate &tmpl : available_templates) {
-									if (tmpl.id == selected_template_id && tmpl.default_modules.has(mod.id)) {
-										is_default = true;
-										break;
-									}
-								}
+					// Disable if it's a default module for the selected template
+					bool is_default = false;
+					if (!selected_template_id.is_empty()) {
+						for (const ProjectTemplate &tmpl : available_templates) {
+							if (tmpl.id == selected_template_id && tmpl.default_modules.has(module_id)) {
+								is_default = true;
+								break;
 							}
-							checkbox->set_disabled(is_default);
-							break;
 						}
 					}
+					checkbox->set_disabled(is_default);
 				}
 			}
 		}
@@ -1212,12 +1209,25 @@ ProjectDialog::ProjectDialog() {
 	name_container->add_child(project_name);
 
 	// Lupine Engine: Add template and module containers after name but before path
+	// Create horizontal container for side-by-side layout
+	HBoxContainer *template_module_hbox = memnew(HBoxContainer);
+	template_module_hbox->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	vb->add_child(template_module_hbox);
+
 	// Create placeholder containers that will be set up later
 	template_container = memnew(VBoxContainer);
-	vb->add_child(template_container);
+	template_container->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	template_container->set_custom_minimum_size(Size2(400, 0) * EDSCALE);
+	template_module_hbox->add_child(template_container);
+
+	// Add separator between template and module sections
+	VSeparator *separator = memnew(VSeparator);
+	template_module_hbox->add_child(separator);
 
 	module_container = memnew(VBoxContainer);
-	vb->add_child(module_container);
+	module_container->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	module_container->set_custom_minimum_size(Size2(400, 0) * EDSCALE);
+	template_module_hbox->add_child(module_container);
 
 	project_path_container = memnew(VBoxContainer);
 	vb->add_child(project_path_container);
@@ -1448,33 +1458,72 @@ void ProjectDialog::_initialize_templates() {
 		ProjectTemplate template_2d_topdown_4dir;
 		template_2d_topdown_4dir.id = "2d_topdown_rpg_4dir";
 		template_2d_topdown_4dir.name = "2D Top-down RPG (4-Direction)";
-		template_2d_topdown_4dir.description = "Classic 2D top-down RPG with 4-directional movement. Perfect for retro-style adventures and dungeon crawlers.";
+		template_2d_topdown_4dir.description = "Complete 2D top-down RPG with 4-directional movement, extensive combat system, world elements, and progression. Perfect for retro-style adventures and dungeon crawlers.";
 		template_2d_topdown_4dir.category = "2D RPG";
 		template_2d_topdown_4dir.default_modules.push_back("player_controller_2d_topdown");
-		template_2d_topdown_4dir.default_modules.push_back("camera_follow_2d");
-		template_2d_topdown_4dir.default_modules.push_back("inventory_basic");
+		template_2d_topdown_4dir.default_modules.push_back("camera_topdown_rpg");
+		template_2d_topdown_4dir.default_modules.push_back("player_stats");
 		template_2d_topdown_4dir.default_modules.push_back("dialogue_system");
+		template_2d_topdown_4dir.default_modules.push_back("inventory_system");
+		template_2d_topdown_4dir.default_modules.push_back("quest_system");
+		template_2d_topdown_4dir.default_modules.push_back("enemy_ai");
+		template_2d_topdown_4dir.default_modules.push_back("ability_system");
+		template_2d_topdown_4dir.default_modules.push_back("topdown_rpg_main_scene");
+		template_2d_topdown_4dir.default_modules.push_back("topdown_enemy_types");
+		template_2d_topdown_4dir.default_modules.push_back("rpg_world_elements");
+		template_2d_topdown_4dir.default_modules.push_back("topdown_combat");
+		template_2d_topdown_4dir.default_modules.push_back("rpg_progression");
+		template_2d_topdown_4dir.default_modules.push_back("collectible_system");
+		template_2d_topdown_4dir.default_modules.push_back("popup_manager");
+		template_2d_topdown_4dir.default_modules.push_back("hud_builder");
 		template_2d_topdown_4dir.folder_structure.push_back("scenes/characters");
-		template_2d_topdown_4dir.folder_structure.push_back("scenes/environments");
+		template_2d_topdown_4dir.folder_structure.push_back("scenes/enemies");
+		template_2d_topdown_4dir.folder_structure.push_back("scenes/world");
+		template_2d_topdown_4dir.folder_structure.push_back("scenes/combat");
 		template_2d_topdown_4dir.folder_structure.push_back("scenes/ui");
 		template_2d_topdown_4dir.folder_structure.push_back("scripts/characters");
+		template_2d_topdown_4dir.folder_structure.push_back("scripts/enemies");
+		template_2d_topdown_4dir.folder_structure.push_back("scripts/world");
+		template_2d_topdown_4dir.folder_structure.push_back("scripts/combat");
+		template_2d_topdown_4dir.folder_structure.push_back("scripts/progression");
+		template_2d_topdown_4dir.folder_structure.push_back("scripts/ui");
 		template_2d_topdown_4dir.folder_structure.push_back("scripts/systems");
+		template_2d_topdown_4dir.folder_structure.push_back("globals");
 		template_2d_topdown_4dir.folder_structure.push_back("assets/sprites/characters");
+		template_2d_topdown_4dir.folder_structure.push_back("assets/sprites/enemies");
 		template_2d_topdown_4dir.folder_structure.push_back("assets/sprites/environments");
+		template_2d_topdown_4dir.folder_structure.push_back("assets/sprites/items");
+		template_2d_topdown_4dir.folder_structure.push_back("assets/sprites/effects");
 		template_2d_topdown_4dir.folder_structure.push_back("assets/audio/music");
 		template_2d_topdown_4dir.folder_structure.push_back("assets/audio/sfx");
+		template_2d_topdown_4dir.folder_structure.push_back("data/dialogues");
+		template_2d_topdown_4dir.folder_structure.push_back("data/quests");
+		template_2d_topdown_4dir.folder_structure.push_back("data/items");
+		template_2d_topdown_4dir.folder_structure.push_back("data/enemies");
 		template_2d_topdown_4dir.main_scene_template = "Main2DTopdown.tscn";
 		available_templates.push_back(template_2d_topdown_4dir);
 
 		ProjectTemplate template_2d_topdown_8dir;
 		template_2d_topdown_8dir.id = "2d_topdown_rpg_8dir";
 		template_2d_topdown_8dir.name = "2D Top-down RPG (8-Direction)";
-		template_2d_topdown_8dir.description = "Modern 2D top-down RPG with 8-directional movement for smoother character control and more dynamic gameplay.";
+		template_2d_topdown_8dir.description = "Complete 2D top-down RPG with 8-directional movement, extensive combat system, world elements, and progression. Perfect for modern action RPGs with smooth character control.";
 		template_2d_topdown_8dir.category = "2D RPG";
 		template_2d_topdown_8dir.default_modules.push_back("player_controller_2d_topdown_8dir");
-		template_2d_topdown_8dir.default_modules.push_back("camera_follow_2d");
-		template_2d_topdown_8dir.default_modules.push_back("inventory_basic");
+		template_2d_topdown_8dir.default_modules.push_back("camera_topdown_rpg");
+		template_2d_topdown_8dir.default_modules.push_back("player_stats");
 		template_2d_topdown_8dir.default_modules.push_back("dialogue_system");
+		template_2d_topdown_8dir.default_modules.push_back("inventory_system");
+		template_2d_topdown_8dir.default_modules.push_back("quest_system");
+		template_2d_topdown_8dir.default_modules.push_back("enemy_ai");
+		template_2d_topdown_8dir.default_modules.push_back("ability_system");
+		template_2d_topdown_8dir.default_modules.push_back("topdown_rpg_main_scene");
+		template_2d_topdown_8dir.default_modules.push_back("topdown_enemy_types");
+		template_2d_topdown_8dir.default_modules.push_back("rpg_world_elements");
+		template_2d_topdown_8dir.default_modules.push_back("topdown_combat");
+		template_2d_topdown_8dir.default_modules.push_back("rpg_progression");
+		template_2d_topdown_8dir.default_modules.push_back("collectible_system");
+		template_2d_topdown_8dir.default_modules.push_back("popup_manager");
+		template_2d_topdown_8dir.default_modules.push_back("hud_builder");
 		template_2d_topdown_8dir.folder_structure = template_2d_topdown_4dir.folder_structure; // Same structure
 		template_2d_topdown_8dir.main_scene_template = "Main2DTopdown8Dir.tscn";
 		available_templates.push_back(template_2d_topdown_8dir);
@@ -1657,13 +1706,16 @@ void ProjectDialog::_initialize_templates() {
 		ProjectTemplate template_monster_2d;
 		template_monster_2d.id = "monster_capture_2d";
 		template_monster_2d.name = "Monster Capture 2D";
-		template_monster_2d.description = "Pokemon-inspired monster collection game with turn-based combat and creature management.";
+		template_monster_2d.description = "Pokemon-inspired monster collection game with authentic turn-based combat, type effectiveness, status effects, and creature management.";
 		template_monster_2d.category = "Monster Capture";
 		template_monster_2d.default_modules.push_back("player_controller_2d_topdown");
+		template_monster_2d.default_modules.push_back("camera_topdown_rpg");
 		template_monster_2d.default_modules.push_back("monster_system");
-		template_monster_2d.default_modules.push_back("turn_based_combat");
+		template_monster_2d.default_modules.push_back("pokemon_battle_system");
 		template_monster_2d.default_modules.push_back("monster_capture_system");
 		template_monster_2d.default_modules.push_back("inventory_basic");
+		template_monster_2d.default_modules.push_back("save_load_system");
+		template_monster_2d.default_modules.push_back("popup_manager");
 		template_monster_2d.folder_structure.push_back("scenes/overworld");
 		template_monster_2d.folder_structure.push_back("scenes/combat");
 		template_monster_2d.folder_structure.push_back("scenes/ui");
@@ -1679,18 +1731,357 @@ void ProjectDialog::_initialize_templates() {
 		ProjectTemplate template_monster_3d;
 		template_monster_3d.id = "monster_capture_3d";
 		template_monster_3d.name = "Monster Capture 3D";
-		template_monster_3d.description = "3D monster collection game with immersive environments and dynamic combat system.";
+		template_monster_3d.description = "3D monster collection game with immersive environments, Pokemon-style turn-based combat, and full 3D exploration.";
 		template_monster_3d.category = "Monster Capture";
 		template_monster_3d.default_modules.push_back("player_controller_3d_third_person");
+		template_monster_3d.default_modules.push_back("camera_follow_3d");
 		template_monster_3d.default_modules.push_back("monster_system");
-		template_monster_3d.default_modules.push_back("realtime_combat");
+		template_monster_3d.default_modules.push_back("pokemon_battle_system");
 		template_monster_3d.default_modules.push_back("monster_capture_system");
 		template_monster_3d.default_modules.push_back("inventory_basic");
+		template_monster_3d.default_modules.push_back("save_load_system");
+		template_monster_3d.default_modules.push_back("popup_manager");
 		template_monster_3d.folder_structure = template_monster_2d.folder_structure;
 		template_monster_3d.folder_structure.push_back("assets/models/monsters");
 		template_monster_3d.folder_structure.push_back("assets/models/environments");
 		template_monster_3d.main_scene_template = "MainMonsterCapture3D.tscn";
 		available_templates.push_back(template_monster_3d);
+	}
+
+	// JRPG Templates
+	{
+		ProjectTemplate template_jrpg_2d;
+		template_jrpg_2d.id = "jrpg_2d";
+		template_jrpg_2d.name = "JRPG 2D (Classic)";
+		template_jrpg_2d.description = "Classic JRPG with party management, turn-based combat, and overworld exploration. Features Final Fantasy/RPG Maker style gameplay with 4/8-directional party followers.";
+		template_jrpg_2d.category = "JRPG";
+		template_jrpg_2d.default_modules.push_back("player_controller_2d_topdown");
+		template_jrpg_2d.default_modules.push_back("camera_topdown_rpg");
+		template_jrpg_2d.default_modules.push_back("player_stats");
+		template_jrpg_2d.default_modules.push_back("jrpg_party_system_2d");
+		template_jrpg_2d.default_modules.push_back("jrpg_combat_system");
+		template_jrpg_2d.default_modules.push_back("dialogue_system");
+		template_jrpg_2d.default_modules.push_back("inventory_system");
+		template_jrpg_2d.default_modules.push_back("quest_system");
+		template_jrpg_2d.default_modules.push_back("enemy_ai");
+		template_jrpg_2d.default_modules.push_back("ability_system");
+		template_jrpg_2d.default_modules.push_back("rpg_progression");
+		template_jrpg_2d.default_modules.push_back("save_load_system");
+		template_jrpg_2d.default_modules.push_back("popup_manager");
+		template_jrpg_2d.default_modules.push_back("hud_builder");
+		template_jrpg_2d.folder_structure.push_back("scenes/party");
+		template_jrpg_2d.folder_structure.push_back("scenes/combat");
+		template_jrpg_2d.folder_structure.push_back("scenes/overworld");
+		template_jrpg_2d.folder_structure.push_back("scenes/ui");
+		template_jrpg_2d.folder_structure.push_back("scripts/party");
+		template_jrpg_2d.folder_structure.push_back("scripts/combat");
+		template_jrpg_2d.folder_structure.push_back("scripts/skills");
+		template_jrpg_2d.folder_structure.push_back("scripts/ui");
+		template_jrpg_2d.folder_structure.push_back("scripts/systems");
+		template_jrpg_2d.folder_structure.push_back("globals");
+		template_jrpg_2d.folder_structure.push_back("assets/sprites/characters");
+		template_jrpg_2d.folder_structure.push_back("assets/sprites/enemies");
+		template_jrpg_2d.folder_structure.push_back("assets/sprites/battle");
+		template_jrpg_2d.folder_structure.push_back("assets/sprites/ui");
+		template_jrpg_2d.folder_structure.push_back("assets/audio/music");
+		template_jrpg_2d.folder_structure.push_back("assets/audio/sfx");
+		template_jrpg_2d.folder_structure.push_back("data/skills");
+		template_jrpg_2d.folder_structure.push_back("data/enemies");
+		template_jrpg_2d.folder_structure.push_back("data/party");
+		template_jrpg_2d.folder_structure.push_back("data/dialogues");
+		template_jrpg_2d.folder_structure.push_back("data/quests");
+		template_jrpg_2d.main_scene_template = "MainJRPG2D.tscn";
+		available_templates.push_back(template_jrpg_2d);
+
+		ProjectTemplate template_jrpg_3d;
+		template_jrpg_3d.id = "jrpg_3d";
+		template_jrpg_3d.name = "JRPG 3D (Modern)";
+		template_jrpg_3d.description = "Modern 3D JRPG with party management, turn-based combat, and 3D overworld exploration. Features Persona/Tales-style gameplay with 3D party followers.";
+		template_jrpg_3d.category = "JRPG";
+		template_jrpg_3d.default_modules.push_back("player_controller_3d_third_person");
+		template_jrpg_3d.default_modules.push_back("camera_3d_orbit");
+		template_jrpg_3d.default_modules.push_back("player_stats");
+		template_jrpg_3d.default_modules.push_back("jrpg_party_system_3d");
+		template_jrpg_3d.default_modules.push_back("jrpg_combat_system");
+		template_jrpg_3d.default_modules.push_back("dialogue_system");
+		template_jrpg_3d.default_modules.push_back("inventory_system");
+		template_jrpg_3d.default_modules.push_back("quest_system");
+		template_jrpg_3d.default_modules.push_back("enemy_ai");
+		template_jrpg_3d.default_modules.push_back("ability_system");
+		template_jrpg_3d.default_modules.push_back("rpg_progression");
+		template_jrpg_3d.default_modules.push_back("save_load_system");
+		template_jrpg_3d.default_modules.push_back("popup_manager");
+		template_jrpg_3d.default_modules.push_back("hud_builder");
+		template_jrpg_3d.folder_structure = template_jrpg_2d.folder_structure;
+		template_jrpg_3d.folder_structure.push_back("assets/models/characters");
+		template_jrpg_3d.folder_structure.push_back("assets/models/enemies");
+		template_jrpg_3d.folder_structure.push_back("assets/models/environments");
+		template_jrpg_3d.folder_structure.push_back("assets/textures");
+		template_jrpg_3d.folder_structure.push_back("assets/materials");
+		template_jrpg_3d.main_scene_template = "MainJRPG3D.tscn";
+		available_templates.push_back(template_jrpg_3d);
+	}
+
+	// Tactical RPG Templates
+	{
+		ProjectTemplate template_tactical_2d;
+		template_tactical_2d.id = "tactical_rpg_2d";
+		template_tactical_2d.name = "Tactical RPG 2D";
+		template_tactical_2d.description = "Fire Emblem-style tactical RPG with grid-based combat, class system, recruitment, and commander gameplay. Features strategic positioning and turn-based battles.";
+		template_tactical_2d.category = "Tactical RPG";
+		template_tactical_2d.default_modules.push_back("tactical_party_system");
+		template_tactical_2d.default_modules.push_back("tactical_combat_2d");
+		template_tactical_2d.default_modules.push_back("player_stats");
+		template_tactical_2d.default_modules.push_back("dialogue_system");
+		template_tactical_2d.default_modules.push_back("inventory_system");
+		template_tactical_2d.default_modules.push_back("quest_system");
+		template_tactical_2d.default_modules.push_back("save_load_system");
+		template_tactical_2d.default_modules.push_back("popup_manager");
+		template_tactical_2d.default_modules.push_back("hud_builder");
+		template_tactical_2d.folder_structure.push_back("scenes/tactical");
+		template_tactical_2d.folder_structure.push_back("scenes/ui/tactical");
+		template_tactical_2d.folder_structure.push_back("scenes/overworld");
+		template_tactical_2d.folder_structure.push_back("scripts/tactical");
+		template_tactical_2d.folder_structure.push_back("scripts/ui/tactical");
+		template_tactical_2d.folder_structure.push_back("scripts/classes");
+		template_tactical_2d.folder_structure.push_back("scripts/ai");
+		template_tactical_2d.folder_structure.push_back("globals");
+		template_tactical_2d.folder_structure.push_back("assets/sprites/units");
+		template_tactical_2d.folder_structure.push_back("assets/sprites/classes");
+		template_tactical_2d.folder_structure.push_back("assets/sprites/battlefields");
+		template_tactical_2d.folder_structure.push_back("assets/sprites/ui");
+		template_tactical_2d.folder_structure.push_back("assets/audio/music");
+		template_tactical_2d.folder_structure.push_back("assets/audio/sfx");
+		template_tactical_2d.folder_structure.push_back("data/classes");
+		template_tactical_2d.folder_structure.push_back("data/units");
+		template_tactical_2d.folder_structure.push_back("data/enemies");
+		template_tactical_2d.folder_structure.push_back("data/battlefields");
+		template_tactical_2d.folder_structure.push_back("data/dialogues");
+		template_tactical_2d.folder_structure.push_back("data/quests");
+		template_tactical_2d.main_scene_template = "MainTactical2D.tscn";
+		available_templates.push_back(template_tactical_2d);
+
+		ProjectTemplate template_tactical_3d;
+		template_tactical_3d.id = "tactical_rpg_3d";
+		template_tactical_3d.name = "Tactical RPG 3D";
+		template_tactical_3d.description = "Modern 3D tactical RPG with height advantages, line of sight, and immersive 3D battlefields. Features advanced tactical mechanics and strategic depth.";
+		template_tactical_3d.category = "Tactical RPG";
+		template_tactical_3d.default_modules.push_back("tactical_party_system");
+		template_tactical_3d.default_modules.push_back("tactical_combat_3d");
+		template_tactical_3d.default_modules.push_back("player_stats");
+		template_tactical_3d.default_modules.push_back("dialogue_system");
+		template_tactical_3d.default_modules.push_back("inventory_system");
+		template_tactical_3d.default_modules.push_back("quest_system");
+		template_tactical_3d.default_modules.push_back("save_load_system");
+		template_tactical_3d.default_modules.push_back("popup_manager");
+		template_tactical_3d.default_modules.push_back("hud_builder");
+		template_tactical_3d.folder_structure = template_tactical_2d.folder_structure;
+		template_tactical_3d.folder_structure.push_back("assets/models/units");
+		template_tactical_3d.folder_structure.push_back("assets/models/battlefields");
+		template_tactical_3d.folder_structure.push_back("assets/models/environments");
+		template_tactical_3d.folder_structure.push_back("assets/textures");
+		template_tactical_3d.folder_structure.push_back("assets/materials");
+		template_tactical_3d.main_scene_template = "MainTactical3D.tscn";
+		available_templates.push_back(template_tactical_3d);
+
+		ProjectTemplate template_vn_tactical_2d;
+		template_vn_tactical_2d.id = "visual_novel_tactical_2d";
+		template_vn_tactical_2d.name = "Visual Novel + Tactical Combat 2D";
+		template_vn_tactical_2d.description = "Story-driven tactical RPG combining rich visual novel storytelling with Fire Emblem-style combat. Perfect for narrative-focused strategy games.";
+		template_vn_tactical_2d.category = "Visual Novel";
+		template_vn_tactical_2d.default_modules.push_back("visual_novel_script_parser");
+		template_vn_tactical_2d.default_modules.push_back("character_portrait_system");
+		template_vn_tactical_2d.default_modules.push_back("background_manager");
+		template_vn_tactical_2d.default_modules.push_back("audio_manager");
+		template_vn_tactical_2d.default_modules.push_back("tactical_party_system");
+		template_vn_tactical_2d.default_modules.push_back("tactical_combat_2d");
+		template_vn_tactical_2d.default_modules.push_back("save_load_system");
+		template_vn_tactical_2d.default_modules.push_back("choice_system");
+		template_vn_tactical_2d.default_modules.push_back("visual_novel_main_scene");
+		template_vn_tactical_2d.default_modules.push_back("popup_manager");
+		template_vn_tactical_2d.default_modules.push_back("hud_builder");
+		template_vn_tactical_2d.folder_structure.push_back("scenes/ui");
+		template_vn_tactical_2d.folder_structure.push_back("scenes/tactical");
+		template_vn_tactical_2d.folder_structure.push_back("scripts/dialogue");
+		template_vn_tactical_2d.folder_structure.push_back("scripts/ui");
+		template_vn_tactical_2d.folder_structure.push_back("scripts/tactical");
+		template_vn_tactical_2d.folder_structure.push_back("scripts/classes");
+		template_vn_tactical_2d.folder_structure.push_back("globals");
+		template_vn_tactical_2d.folder_structure.push_back("assets/portraits");
+		template_vn_tactical_2d.folder_structure.push_back("assets/backgrounds");
+		template_vn_tactical_2d.folder_structure.push_back("assets/sprites/units");
+		template_vn_tactical_2d.folder_structure.push_back("assets/sprites/battlefields");
+		template_vn_tactical_2d.folder_structure.push_back("assets/music");
+		template_vn_tactical_2d.folder_structure.push_back("assets/soundEffects");
+		template_vn_tactical_2d.folder_structure.push_back("data/dialogue");
+		template_vn_tactical_2d.folder_structure.push_back("data/classes");
+		template_vn_tactical_2d.folder_structure.push_back("data/units");
+		template_vn_tactical_2d.folder_structure.push_back("data/enemies");
+		template_vn_tactical_2d.folder_structure.push_back("data/battlefields");
+		template_vn_tactical_2d.main_scene_template = "MainVNTactical2D.tscn";
+		available_templates.push_back(template_vn_tactical_2d);
+
+		ProjectTemplate template_vn_tactical_3d;
+		template_vn_tactical_3d.id = "visual_novel_tactical_3d";
+		template_vn_tactical_3d.name = "Visual Novel + Tactical Combat 3D";
+		template_vn_tactical_3d.description = "Modern story-driven tactical RPG with 3D combat and visual novel elements. Combines cinematic storytelling with strategic 3D battles.";
+		template_vn_tactical_3d.category = "Visual Novel";
+		template_vn_tactical_3d.default_modules.push_back("visual_novel_script_parser");
+		template_vn_tactical_3d.default_modules.push_back("character_portrait_system");
+		template_vn_tactical_3d.default_modules.push_back("background_manager");
+		template_vn_tactical_3d.default_modules.push_back("audio_manager");
+		template_vn_tactical_3d.default_modules.push_back("tactical_party_system");
+		template_vn_tactical_3d.default_modules.push_back("tactical_combat_3d");
+		template_vn_tactical_3d.default_modules.push_back("save_load_system");
+		template_vn_tactical_3d.default_modules.push_back("choice_system");
+		template_vn_tactical_3d.default_modules.push_back("visual_novel_main_scene");
+		template_vn_tactical_3d.default_modules.push_back("popup_manager");
+		template_vn_tactical_3d.default_modules.push_back("hud_builder");
+		template_vn_tactical_3d.folder_structure = template_vn_tactical_2d.folder_structure;
+		template_vn_tactical_3d.folder_structure.push_back("assets/models/units");
+		template_vn_tactical_3d.folder_structure.push_back("assets/models/battlefields");
+		template_vn_tactical_3d.folder_structure.push_back("assets/models/environments");
+		template_vn_tactical_3d.folder_structure.push_back("assets/textures");
+		template_vn_tactical_3d.folder_structure.push_back("assets/materials");
+		template_vn_tactical_3d.main_scene_template = "MainVNTactical3D.tscn";
+		available_templates.push_back(template_vn_tactical_3d);
+	}
+
+	// Social/Relationship Templates
+	{
+		ProjectTemplate template_social_sim;
+		template_social_sim.id = "social_simulation";
+		template_social_sim.name = "Social Simulation (Stardew Valley Style)";
+		template_social_sim.description = "Complete social simulation with friendship mechanics, gift giving, dating, marriage, festivals, and character schedules. Perfect for farming sims and life simulation games.";
+		template_social_sim.category = "Social Simulation";
+		template_social_sim.default_modules.push_back("player_controller_2d_topdown");
+		template_social_sim.default_modules.push_back("camera_topdown_rpg");
+		template_social_sim.default_modules.push_back("relationship_system");
+		template_social_sim.default_modules.push_back("social_interaction_system");
+		template_social_sim.default_modules.push_back("faction_reputation_system");
+		template_social_sim.default_modules.push_back("dialogue_system");
+		template_social_sim.default_modules.push_back("inventory_system");
+		template_social_sim.default_modules.push_back("quest_system");
+		template_social_sim.default_modules.push_back("save_load_system");
+		template_social_sim.default_modules.push_back("popup_manager");
+		template_social_sim.default_modules.push_back("hud_builder");
+		template_social_sim.folder_structure.push_back("scenes/social");
+		template_social_sim.folder_structure.push_back("scenes/ui/social");
+		template_social_sim.folder_structure.push_back("scenes/locations");
+		template_social_sim.folder_structure.push_back("scripts/social");
+		template_social_sim.folder_structure.push_back("scripts/relationships");
+		template_social_sim.folder_structure.push_back("scripts/ui/social");
+		template_social_sim.folder_structure.push_back("scripts/characters");
+		template_social_sim.folder_structure.push_back("globals");
+		template_social_sim.folder_structure.push_back("assets/portraits");
+		template_social_sim.folder_structure.push_back("assets/sprites/characters");
+		template_social_sim.folder_structure.push_back("assets/sprites/gifts");
+		template_social_sim.folder_structure.push_back("assets/sprites/locations");
+		template_social_sim.folder_structure.push_back("assets/sprites/ui");
+		template_social_sim.folder_structure.push_back("assets/audio/music");
+		template_social_sim.folder_structure.push_back("assets/audio/sfx");
+		template_social_sim.folder_structure.push_back("data/relationships");
+		template_social_sim.folder_structure.push_back("data/social");
+		template_social_sim.folder_structure.push_back("data/factions");
+		template_social_sim.folder_structure.push_back("data/characters");
+		template_social_sim.folder_structure.push_back("data/dialogues");
+		template_social_sim.folder_structure.push_back("data/quests");
+		template_social_sim.main_scene_template = "MainSocialSim.tscn";
+		available_templates.push_back(template_social_sim);
+
+		ProjectTemplate template_fe_enhanced;
+		template_fe_enhanced.id = "fire_emblem_enhanced";
+		template_fe_enhanced.name = "Fire Emblem Enhanced (Tactical + Social)";
+		template_fe_enhanced.description = "Complete Fire Emblem-style game with tactical combat, support conversations, relationship building, and faction politics. Includes full social mechanics alongside strategic gameplay.";
+		template_fe_enhanced.category = "Tactical RPG";
+		template_fe_enhanced.default_modules.push_back("tactical_party_system");
+		template_fe_enhanced.default_modules.push_back("tactical_combat_2d");
+		template_fe_enhanced.default_modules.push_back("relationship_system");
+		template_fe_enhanced.default_modules.push_back("support_conversation_system");
+		template_fe_enhanced.default_modules.push_back("faction_reputation_system");
+		template_fe_enhanced.default_modules.push_back("player_stats");
+		template_fe_enhanced.default_modules.push_back("dialogue_system");
+		template_fe_enhanced.default_modules.push_back("inventory_system");
+		template_fe_enhanced.default_modules.push_back("quest_system");
+		template_fe_enhanced.default_modules.push_back("save_load_system");
+		template_fe_enhanced.default_modules.push_back("popup_manager");
+		template_fe_enhanced.default_modules.push_back("hud_builder");
+		template_fe_enhanced.folder_structure.push_back("scenes/tactical");
+		template_fe_enhanced.folder_structure.push_back("scenes/social");
+		template_fe_enhanced.folder_structure.push_back("scenes/ui/tactical");
+		template_fe_enhanced.folder_structure.push_back("scenes/ui/social");
+		template_fe_enhanced.folder_structure.push_back("scenes/overworld");
+		template_fe_enhanced.folder_structure.push_back("scripts/tactical");
+		template_fe_enhanced.folder_structure.push_back("scripts/social");
+		template_fe_enhanced.folder_structure.push_back("scripts/relationships");
+		template_fe_enhanced.folder_structure.push_back("scripts/support");
+		template_fe_enhanced.folder_structure.push_back("scripts/classes");
+		template_fe_enhanced.folder_structure.push_back("scripts/ai");
+		template_fe_enhanced.folder_structure.push_back("globals");
+		template_fe_enhanced.folder_structure.push_back("assets/portraits");
+		template_fe_enhanced.folder_structure.push_back("assets/sprites/units");
+		template_fe_enhanced.folder_structure.push_back("assets/sprites/battlefields");
+		template_fe_enhanced.folder_structure.push_back("assets/sprites/ui");
+		template_fe_enhanced.folder_structure.push_back("assets/audio/music");
+		template_fe_enhanced.folder_structure.push_back("assets/audio/sfx");
+		template_fe_enhanced.folder_structure.push_back("data/relationships");
+		template_fe_enhanced.folder_structure.push_back("data/support");
+		template_fe_enhanced.folder_structure.push_back("data/factions");
+		template_fe_enhanced.folder_structure.push_back("data/classes");
+		template_fe_enhanced.folder_structure.push_back("data/units");
+		template_fe_enhanced.folder_structure.push_back("data/enemies");
+		template_fe_enhanced.folder_structure.push_back("data/battlefields");
+		template_fe_enhanced.folder_structure.push_back("data/dialogues");
+		template_fe_enhanced.folder_structure.push_back("data/quests");
+		template_fe_enhanced.main_scene_template = "MainFEEnhanced.tscn";
+		available_templates.push_back(template_fe_enhanced);
+
+		ProjectTemplate template_merchant_sim;
+		template_merchant_sim.id = "merchant_simulation";
+		template_merchant_sim.name = "Merchant Simulation (Potionomics Style)";
+		template_merchant_sim.description = "Business simulation with character relationships, faction reputation, negotiation mechanics, and social interactions. Perfect for shop management and trading games.";
+		template_merchant_sim.category = "Business Simulation";
+		template_merchant_sim.default_modules.push_back("player_controller_2d_topdown");
+		template_merchant_sim.default_modules.push_back("camera_topdown_rpg");
+		template_merchant_sim.default_modules.push_back("relationship_system");
+		template_merchant_sim.default_modules.push_back("social_interaction_system");
+		template_merchant_sim.default_modules.push_back("faction_reputation_system");
+		template_merchant_sim.default_modules.push_back("dialogue_system");
+		template_merchant_sim.default_modules.push_back("inventory_system");
+		template_merchant_sim.default_modules.push_back("shop_system");
+		template_merchant_sim.default_modules.push_back("quest_system");
+		template_merchant_sim.default_modules.push_back("save_load_system");
+		template_merchant_sim.default_modules.push_back("popup_manager");
+		template_merchant_sim.default_modules.push_back("hud_builder");
+		template_merchant_sim.folder_structure.push_back("scenes/shop");
+		template_merchant_sim.folder_structure.push_back("scenes/social");
+		template_merchant_sim.folder_structure.push_back("scenes/ui/business");
+		template_merchant_sim.folder_structure.push_back("scenes/ui/social");
+		template_merchant_sim.folder_structure.push_back("scenes/locations");
+		template_merchant_sim.folder_structure.push_back("scripts/business");
+		template_merchant_sim.folder_structure.push_back("scripts/social");
+		template_merchant_sim.folder_structure.push_back("scripts/relationships");
+		template_merchant_sim.folder_structure.push_back("scripts/negotiation");
+		template_merchant_sim.folder_structure.push_back("scripts/ui/business");
+		template_merchant_sim.folder_structure.push_back("scripts/ui/social");
+		template_merchant_sim.folder_structure.push_back("globals");
+		template_merchant_sim.folder_structure.push_back("assets/portraits");
+		template_merchant_sim.folder_structure.push_back("assets/sprites/characters");
+		template_merchant_sim.folder_structure.push_back("assets/sprites/items");
+		template_merchant_sim.folder_structure.push_back("assets/sprites/shops");
+		template_merchant_sim.folder_structure.push_back("assets/sprites/ui");
+		template_merchant_sim.folder_structure.push_back("assets/audio/music");
+		template_merchant_sim.folder_structure.push_back("assets/audio/sfx");
+		template_merchant_sim.folder_structure.push_back("data/relationships");
+		template_merchant_sim.folder_structure.push_back("data/social");
+		template_merchant_sim.folder_structure.push_back("data/factions");
+		template_merchant_sim.folder_structure.push_back("data/business");
+		template_merchant_sim.folder_structure.push_back("data/items");
+		template_merchant_sim.folder_structure.push_back("data/characters");
+		template_merchant_sim.folder_structure.push_back("data/dialogues");
+		template_merchant_sim.folder_structure.push_back("data/quests");
+		template_merchant_sim.main_scene_template = "MainMerchantSim.tscn";
+		available_templates.push_back(template_merchant_sim);
 	}
 }
 

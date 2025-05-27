@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+Import("env")
+
+env_lupine_tools = env.Clone()
+
+# Add source files for Lupine Editor Tools
+lupine_tools_sources = [
+    "lupine_editor_plugin.cpp",
+    "lupine_world_builder.cpp",
+    "lupine_entity_editor.cpp",
+    "lupine_dialogue_editor.cpp",
+    "lupine_asset_manager.cpp",
+    "lupine_quest_designer.cpp",
+    "lupine_combat_designer.cpp",
+]
+
+# Build the Lupine Editor Tools as part of the editor
+env.add_source_files(env.editor_sources, lupine_tools_sources)

@@ -126,6 +126,7 @@
 #include "editor/plugins/tiles/tiles_editor_plugin.h"
 #include "editor/plugins/tool_button_editor_plugin.h"
 #include "editor/plugins/voxel_gi_editor_plugin.h"
+#include "editor/plugins/lupine_editor_tools/lupine_editor_plugin.h"
 #include "editor/register_exporters.h"
 #ifndef DISABLE_DEPRECATED
 #include "editor/plugins/parallax_background_editor_plugin.h"
@@ -253,6 +254,9 @@ void register_editor_types() {
 	EditorPlugins::add_by_type<ThemeEditorPlugin>();
 	EditorPlugins::add_by_type<ToolButtonEditorPlugin>();
 	EditorPlugins::add_by_type<VoxelGIEditorPlugin>();
+
+	// Lupine Engine Editor Tools
+	EditorPlugins::add_by_type<LupineEditorPlugin>();
 #ifndef DISABLE_DEPRECATED
 	EditorPlugins::add_by_type<SkeletonIK3DEditorPlugin>();
 #endif
