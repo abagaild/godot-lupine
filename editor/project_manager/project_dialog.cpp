@@ -336,7 +336,7 @@ void ProjectDialog::_setup_module_ui() {
 		module_checkbox->set_text(mod.name);
 		module_checkbox->set_tooltip_text(mod.description);
 		module_checkbox->set_toggle_mode(true);
-		module_checkbox->connect(SceneStringName(toggled), callable_mp(this, &ProjectDialog::_module_toggled).bind(mod.id));
+		module_checkbox->connect("toggled", callable_mp(this, &ProjectDialog::_module_toggled).bind(mod.id));
 		category_vbox->add_child(module_checkbox);
 	}
 
@@ -1484,13 +1484,79 @@ void ProjectDialog::_initialize_templates() {
 		template_2d_sidescroller.name = "2D Sidescroller RPG";
 		template_2d_sidescroller.description = "Side-scrolling RPG with platforming elements. Great for Metroidvania-style games with RPG progression.";
 		template_2d_sidescroller.category = "2D RPG";
-		template_2d_sidescroller.default_modules.push_back("player_controller_2d_platformer");
-		template_2d_sidescroller.default_modules.push_back("camera_follow_2d_sidescroll");
-		template_2d_sidescroller.default_modules.push_back("inventory_basic");
+		template_2d_sidescroller.default_modules.push_back("enhanced_platformer_controller");
+		template_2d_sidescroller.default_modules.push_back("parallax_camera");
+		template_2d_sidescroller.default_modules.push_back("player_stats");
 		template_2d_sidescroller.default_modules.push_back("dialogue_system");
+		template_2d_sidescroller.default_modules.push_back("inventory_system");
+		template_2d_sidescroller.default_modules.push_back("enemy_ai");
+		template_2d_sidescroller.default_modules.push_back("ability_system");
+		template_2d_sidescroller.default_modules.push_back("collectible_system");
+		template_2d_sidescroller.default_modules.push_back("level_progression");
+		template_2d_sidescroller.default_modules.push_back("quest_system");
+		template_2d_sidescroller.default_modules.push_back("platformer_elements");
+		template_2d_sidescroller.default_modules.push_back("popup_manager");
+		template_2d_sidescroller.default_modules.push_back("screen_effects");
+		template_2d_sidescroller.default_modules.push_back("passive_mobs");
+		template_2d_sidescroller.default_modules.push_back("hud_builder");
 		template_2d_sidescroller.folder_structure = template_2d_topdown_4dir.folder_structure; // Same base structure
+		template_2d_sidescroller.folder_structure.push_back("scenes/enemies");
+		template_2d_sidescroller.folder_structure.push_back("scenes/collectibles");
+		template_2d_sidescroller.folder_structure.push_back("scenes/abilities");
+		template_2d_sidescroller.folder_structure.push_back("scenes/projectiles");
+		template_2d_sidescroller.folder_structure.push_back("scenes/world");
+		template_2d_sidescroller.folder_structure.push_back("scripts/enemies");
+		template_2d_sidescroller.folder_structure.push_back("scripts/collectibles");
+		template_2d_sidescroller.folder_structure.push_back("scripts/abilities");
+		template_2d_sidescroller.folder_structure.push_back("scripts/projectiles");
+		template_2d_sidescroller.folder_structure.push_back("scripts/world");
+		template_2d_sidescroller.folder_structure.push_back("scripts/items");
+		template_2d_sidescroller.folder_structure.push_back("data/dialogues");
+		template_2d_sidescroller.folder_structure.push_back("data/items");
+		template_2d_sidescroller.folder_structure.push_back("data/abilities");
+		template_2d_sidescroller.folder_structure.push_back("data/levels");
 		template_2d_sidescroller.main_scene_template = "Main2DSidescroller.tscn";
 		available_templates.push_back(template_2d_sidescroller);
+
+		// 3D Platformer Template
+		ProjectTemplate template_3d_platformer;
+		template_3d_platformer.id = "3d_platformer";
+		template_3d_platformer.name = "3D Platformer";
+		template_3d_platformer.description = "Complete 3D platformer template with Mario 64/Banjo-Kazooie style gameplay, complex puzzles, enemies, bosses, and world progression.";
+		template_3d_platformer.category = "3D";
+		template_3d_platformer.folder_structure.push_back("scenes/player");
+		template_3d_platformer.folder_structure.push_back("scenes/enemies");
+		template_3d_platformer.folder_structure.push_back("scenes/collectibles");
+		template_3d_platformer.folder_structure.push_back("scenes/levels");
+		template_3d_platformer.folder_structure.push_back("scenes/puzzles");
+		template_3d_platformer.folder_structure.push_back("scenes/world");
+		template_3d_platformer.folder_structure.push_back("scenes/camera");
+		template_3d_platformer.folder_structure.push_back("scripts/player");
+		template_3d_platformer.folder_structure.push_back("scripts/enemies");
+		template_3d_platformer.folder_structure.push_back("scripts/collectibles");
+		template_3d_platformer.folder_structure.push_back("scripts/puzzles");
+		template_3d_platformer.folder_structure.push_back("scripts/world");
+		template_3d_platformer.folder_structure.push_back("scripts/camera");
+		template_3d_platformer.folder_structure.push_back("assets/models");
+		template_3d_platformer.folder_structure.push_back("assets/textures");
+		template_3d_platformer.folder_structure.push_back("assets/materials");
+		template_3d_platformer.folder_structure.push_back("data");
+		template_3d_platformer.default_modules.push_back("platformer_3d_controller");
+		template_3d_platformer.default_modules.push_back("camera_3d");
+		template_3d_platformer.default_modules.push_back("world_state_3d");
+		template_3d_platformer.default_modules.push_back("puzzle_system_3d");
+		template_3d_platformer.default_modules.push_back("enemy_3d");
+		template_3d_platformer.default_modules.push_back("location_manager_3d");
+		template_3d_platformer.default_modules.push_back("player_stats");
+		template_3d_platformer.default_modules.push_back("dialogue_system");
+		template_3d_platformer.default_modules.push_back("quest_system");
+		template_3d_platformer.default_modules.push_back("inventory_system");
+		template_3d_platformer.default_modules.push_back("collectible_system");
+		template_3d_platformer.default_modules.push_back("popup_manager");
+		template_3d_platformer.default_modules.push_back("screen_effects");
+		template_3d_platformer.default_modules.push_back("hud_builder");
+		template_3d_platformer.main_scene_template = "Main3D.tscn";
+		available_templates.push_back(template_3d_platformer);
 	}
 
 	// 3D Templates

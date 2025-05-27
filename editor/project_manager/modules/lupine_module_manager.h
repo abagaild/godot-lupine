@@ -42,7 +42,10 @@ private:
 	void _register_player_controllers();
 	void _register_camera_controllers();
 	void _register_core_systems();
+	void _register_rpg_systems();
+	void _register_3d_platformer_modules();
 	void _register_visual_novel_modules();
+	void _register_ui_systems();
 
 	// Legacy module generators
 	void _generate_legacy_script(Ref<FileAccess> p_file, const String &p_module_id, const String &p_filename);

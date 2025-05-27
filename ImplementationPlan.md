@@ -273,7 +273,10 @@ Lupine Engine is a narrative-focused game development platform built on Godot, d
 - [ ] Difficulty indicators
 - [ ] Time estimates
 
-### 6.3 Module Configuration UI
+### 6.3 Module Configuration UI ✅ (Completed)
+- [x] Module selection with checkboxes (fixed toggle issue)
+- [x] Category-based organization
+- [x] Dependency management
 - [ ] Drag-and-drop module selection
 - [ ] Dependency visualization
 - [ ] Conflict warnings
@@ -287,15 +290,38 @@ Lupine Engine is a narrative-focused game development platform built on Godot, d
 - [ ] Quick actions
 - [ ] Recent files
 
+## Phase 7: UI Builder Modules ✅ (Completed)
+
+### 7.1 Menu Builder Module ✅
+- [x] Extensible menu system with customizable layouts
+- [x] Support for main menus, pause menus, settings menus
+- [x] Theme support and styling options
+- [x] Action-based button system
+- [x] JSON configuration system
+- [x] Base menu class for inheritance
+- [x] Input handling and navigation
+
+### 7.2 HUD Builder Module ✅
+- [x] Modular HUD components (health bars, mini-maps, inventory slots, etc.)
+- [x] Real-time data binding system
+- [x] Flexible positioning and anchoring
+- [x] Support for different game types (RPG, platformer, etc.)
+- [x] Layout configuration system
+- [x] Component registration and management
+- [x] Base HUD class for inheritance
+
 ## Implementation Status
 
 ### Completed ✅
 - Enhanced project dialog with template selection
 - Template and module system architecture
 - Basic template definitions (12 templates)
-- Comprehensive module definitions (25+ modules)
+- Comprehensive module definitions (27+ modules)
 - Project structure generation
 - UI integration for template/module selection
+- Menu Builder Module with extensible menu system
+- HUD Builder Module with modular components
+- Fixed checkbox toggle issue in module selection
 
 ### In Progress 🔄
 - Template implementation (placeholder files created)

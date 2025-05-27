@@ -12,6 +12,27 @@
 #include "save_load_system_module.h"
 #include "choice_system_module.h"
 #include "visual_novel_main_scene_module.h"
+#include "menu_builder_module.h"
+#include "hud_builder_module.h"
+#include "dialogue_system_module.h"
+#include "inventory_system_module.h"
+#include "enemy_ai_module.h"
+#include "ability_system_module.h"
+#include "collectible_system_module.h"
+#include "level_progression_module.h"
+#include "platformer_elements_module.h"
+#include "enhanced_platformer_controller_module.h"
+#include "parallax_camera_module.h"
+#include "quest_system_module.h"
+#include "popup_manager_module.h"
+#include "screen_effects_module.h"
+#include "passive_mobs_module.h"
+#include "platformer_3d_controller_module.h"
+#include "camera_3d_module.h"
+#include "world_state_3d_module.h"
+#include "puzzle_system_3d_module.h"
+#include "enemy_3d_module.h"
+#include "location_manager_3d_module.h"
 
 LupineModuleManager::LupineModuleManager() {
 	initialize_modules();
@@ -32,7 +53,10 @@ void LupineModuleManager::initialize_modules() {
 	_register_core_systems();
 	_register_player_controllers();
 	_register_camera_controllers();
+	_register_rpg_systems();
+	_register_3d_platformer_modules();
 	_register_visual_novel_modules();
+	_register_ui_systems();
 }
 
 void LupineModuleManager::_register_core_systems() {
@@ -154,6 +178,238 @@ void LupineModuleManager::_register_camera_controllers() {
 	fps_mod.category = fps_camera->get_module_category();
 	fps_mod.files_to_create = fps_camera->get_files_to_create();
 	available_modules.push_back(fps_mod);
+}
+
+void LupineModuleManager::_register_rpg_systems() {
+	// Dialogue System
+	DialogueSystemModule* dialogue_system = new DialogueSystemModule();
+	register_module("dialogue_system", dialogue_system);
+
+	ProjectModule dialogue_mod;
+	dialogue_mod.id = "dialogue_system";
+	dialogue_mod.name = dialogue_system->get_module_name();
+	dialogue_mod.description = dialogue_system->get_module_description();
+	dialogue_mod.category = dialogue_system->get_module_category();
+	dialogue_mod.files_to_create = dialogue_system->get_files_to_create();
+	available_modules.push_back(dialogue_mod);
+
+	// Inventory System
+	InventorySystemModule* inventory_system = new InventorySystemModule();
+	register_module("inventory_system", inventory_system);
+
+	ProjectModule inventory_mod;
+	inventory_mod.id = "inventory_system";
+	inventory_mod.name = inventory_system->get_module_name();
+	inventory_mod.description = inventory_system->get_module_description();
+	inventory_mod.category = inventory_system->get_module_category();
+	inventory_mod.files_to_create = inventory_system->get_files_to_create();
+	available_modules.push_back(inventory_mod);
+
+	// Enemy AI System
+	EnemyAIModule* enemy_ai = new EnemyAIModule();
+	register_module("enemy_ai", enemy_ai);
+
+	ProjectModule enemy_mod;
+	enemy_mod.id = "enemy_ai";
+	enemy_mod.name = enemy_ai->get_module_name();
+	enemy_mod.description = enemy_ai->get_module_description();
+	enemy_mod.category = enemy_ai->get_module_category();
+	enemy_mod.files_to_create = enemy_ai->get_files_to_create();
+	available_modules.push_back(enemy_mod);
+
+	// Ability System
+	AbilitySystemModule* ability_system = new AbilitySystemModule();
+	register_module("ability_system", ability_system);
+
+	ProjectModule ability_mod;
+	ability_mod.id = "ability_system";
+	ability_mod.name = ability_system->get_module_name();
+	ability_mod.description = ability_system->get_module_description();
+	ability_mod.category = ability_system->get_module_category();
+	ability_mod.files_to_create = ability_system->get_files_to_create();
+	available_modules.push_back(ability_mod);
+
+	// Collectible System
+	CollectibleSystemModule* collectible_system = new CollectibleSystemModule();
+	register_module("collectible_system", collectible_system);
+
+	ProjectModule collectible_mod;
+	collectible_mod.id = "collectible_system";
+	collectible_mod.name = collectible_system->get_module_name();
+	collectible_mod.description = collectible_system->get_module_description();
+	collectible_mod.category = collectible_system->get_module_category();
+	collectible_mod.files_to_create = collectible_system->get_files_to_create();
+	available_modules.push_back(collectible_mod);
+
+	// Level Progression System
+	LevelProgressionModule* level_progression = new LevelProgressionModule();
+	register_module("level_progression", level_progression);
+
+	ProjectModule level_mod;
+	level_mod.id = "level_progression";
+	level_mod.name = level_progression->get_module_name();
+	level_mod.description = level_progression->get_module_description();
+	level_mod.category = level_progression->get_module_category();
+	level_mod.files_to_create = level_progression->get_files_to_create();
+	available_modules.push_back(level_mod);
+
+	// Platformer Elements
+	PlatformerElementsModule* platformer_elements = new PlatformerElementsModule();
+	register_module("platformer_elements", platformer_elements);
+
+	ProjectModule platformer_mod;
+	platformer_mod.id = "platformer_elements";
+	platformer_mod.name = platformer_elements->get_module_name();
+	platformer_mod.description = platformer_elements->get_module_description();
+	platformer_mod.category = platformer_elements->get_module_category();
+	platformer_mod.files_to_create = platformer_elements->get_files_to_create();
+	available_modules.push_back(platformer_mod);
+
+	// Enhanced Platformer Controller
+	EnhancedPlatformerControllerModule* enhanced_controller = new EnhancedPlatformerControllerModule();
+	register_module("enhanced_platformer_controller", enhanced_controller);
+
+	ProjectModule enhanced_mod;
+	enhanced_mod.id = "enhanced_platformer_controller";
+	enhanced_mod.name = enhanced_controller->get_module_name();
+	enhanced_mod.description = enhanced_controller->get_module_description();
+	enhanced_mod.category = enhanced_controller->get_module_category();
+	enhanced_mod.files_to_create = enhanced_controller->get_files_to_create();
+	available_modules.push_back(enhanced_mod);
+
+	// Parallax Camera
+	ParallaxCameraModule* parallax_camera = new ParallaxCameraModule();
+	register_module("parallax_camera", parallax_camera);
+
+	ProjectModule parallax_mod;
+	parallax_mod.id = "parallax_camera";
+	parallax_mod.name = parallax_camera->get_module_name();
+	parallax_mod.description = parallax_camera->get_module_description();
+	parallax_mod.category = parallax_camera->get_module_category();
+	parallax_mod.files_to_create = parallax_camera->get_files_to_create();
+	available_modules.push_back(parallax_mod);
+
+	// Quest System
+	QuestSystemModule* quest_system = new QuestSystemModule();
+	register_module("quest_system", quest_system);
+
+	ProjectModule quest_mod;
+	quest_mod.id = "quest_system";
+	quest_mod.name = quest_system->get_module_name();
+	quest_mod.description = quest_system->get_module_description();
+	quest_mod.category = quest_system->get_module_category();
+	quest_mod.files_to_create = quest_system->get_files_to_create();
+	available_modules.push_back(quest_mod);
+
+	// Popup Manager
+	PopupManagerModule* popup_manager = new PopupManagerModule();
+	register_module("popup_manager", popup_manager);
+
+	ProjectModule popup_mod;
+	popup_mod.id = "popup_manager";
+	popup_mod.name = popup_manager->get_module_name();
+	popup_mod.description = popup_manager->get_module_description();
+	popup_mod.category = popup_manager->get_module_category();
+	popup_mod.files_to_create = popup_manager->get_files_to_create();
+	available_modules.push_back(popup_mod);
+
+	// Screen Effects
+	ScreenEffectsModule* screen_effects = new ScreenEffectsModule();
+	register_module("screen_effects", screen_effects);
+
+	ProjectModule screen_mod;
+	screen_mod.id = "screen_effects";
+	screen_mod.name = screen_effects->get_module_name();
+	screen_mod.description = screen_effects->get_module_description();
+	screen_mod.category = screen_effects->get_module_category();
+	screen_mod.files_to_create = screen_effects->get_files_to_create();
+	available_modules.push_back(screen_mod);
+
+	// Passive Mobs
+	PassiveMobsModule* passive_mobs = new PassiveMobsModule();
+	register_module("passive_mobs", passive_mobs);
+
+	ProjectModule mobs_mod;
+	mobs_mod.id = "passive_mobs";
+	mobs_mod.name = passive_mobs->get_module_name();
+	mobs_mod.description = passive_mobs->get_module_description();
+	mobs_mod.category = passive_mobs->get_module_category();
+	mobs_mod.files_to_create = passive_mobs->get_files_to_create();
+	available_modules.push_back(mobs_mod);
+}
+
+void LupineModuleManager::_register_3d_platformer_modules() {
+	// 3D Player Controller
+	Platformer3DControllerModule* platformer_3d_controller = new Platformer3DControllerModule();
+	register_module("platformer_3d_controller", platformer_3d_controller);
+
+	ProjectModule controller_3d_mod;
+	controller_3d_mod.id = "platformer_3d_controller";
+	controller_3d_mod.name = platformer_3d_controller->get_module_name();
+	controller_3d_mod.description = platformer_3d_controller->get_module_description();
+	controller_3d_mod.category = platformer_3d_controller->get_module_category();
+	controller_3d_mod.files_to_create = platformer_3d_controller->get_files_to_create();
+	available_modules.push_back(controller_3d_mod);
+
+	// 3D Camera System
+	Camera3DModule* camera_3d = new Camera3DModule();
+	register_module("camera_3d", camera_3d);
+
+	ProjectModule camera_3d_mod;
+	camera_3d_mod.id = "camera_3d";
+	camera_3d_mod.name = camera_3d->get_module_name();
+	camera_3d_mod.description = camera_3d->get_module_description();
+	camera_3d_mod.category = camera_3d->get_module_category();
+	camera_3d_mod.files_to_create = camera_3d->get_files_to_create();
+	available_modules.push_back(camera_3d_mod);
+
+	// World State 3D
+	WorldState3DModule* world_state_3d = new WorldState3DModule();
+	register_module("world_state_3d", world_state_3d);
+
+	ProjectModule world_state_3d_mod;
+	world_state_3d_mod.id = "world_state_3d";
+	world_state_3d_mod.name = world_state_3d->get_module_name();
+	world_state_3d_mod.description = world_state_3d->get_module_description();
+	world_state_3d_mod.category = world_state_3d->get_module_category();
+	world_state_3d_mod.files_to_create = world_state_3d->get_files_to_create();
+	available_modules.push_back(world_state_3d_mod);
+
+	// Puzzle System 3D
+	PuzzleSystem3DModule* puzzle_system_3d = new PuzzleSystem3DModule();
+	register_module("puzzle_system_3d", puzzle_system_3d);
+
+	ProjectModule puzzle_3d_mod;
+	puzzle_3d_mod.id = "puzzle_system_3d";
+	puzzle_3d_mod.name = puzzle_system_3d->get_module_name();
+	puzzle_3d_mod.description = puzzle_system_3d->get_module_description();
+	puzzle_3d_mod.category = puzzle_system_3d->get_module_category();
+	puzzle_3d_mod.files_to_create = puzzle_system_3d->get_files_to_create();
+	available_modules.push_back(puzzle_3d_mod);
+
+	// Enemy System 3D
+	Enemy3DModule* enemy_3d = new Enemy3DModule();
+	register_module("enemy_3d", enemy_3d);
+
+	ProjectModule enemy_3d_mod;
+	enemy_3d_mod.id = "enemy_3d";
+	enemy_3d_mod.name = enemy_3d->get_module_name();
+	enemy_3d_mod.description = enemy_3d->get_module_description();
+	enemy_3d_mod.category = enemy_3d->get_module_category();
+	enemy_3d_mod.files_to_create = enemy_3d->get_files_to_create();
+	available_modules.push_back(enemy_3d_mod);
+
+	// Location Manager 3D
+	LocationManager3DModule* location_manager_3d = new LocationManager3DModule();
+	register_module("location_manager_3d", location_manager_3d);
+
+	ProjectModule location_3d_mod;
+	location_3d_mod.id = "location_manager_3d";
+	location_3d_mod.name = location_manager_3d->get_module_name();
+	location_3d_mod.description = location_manager_3d->get_module_description();
+	location_3d_mod.category = location_manager_3d->get_module_category();
+	location_3d_mod.files_to_create = location_manager_3d->get_files_to_create();
+	available_modules.push_back(location_3d_mod);
 }
 
 void LupineModuleManager::_register_visual_novel_modules() {
@@ -405,4 +661,30 @@ void LupineModuleManager::_generate_legacy_scene(Ref<FileAccess> p_file, const S
 		p_file->store_line("");
 		p_file->store_line("[node name=\"" + p_filename + "\" type=\"Node\"]");
 	}
+}
+
+void LupineModuleManager::_register_ui_systems() {
+	// Menu Builder System
+	MenuBuilderModule* menu_builder = new MenuBuilderModule();
+	register_module("menu_builder", menu_builder);
+
+	ProjectModule menu_mod;
+	menu_mod.id = "menu_builder";
+	menu_mod.name = menu_builder->get_module_name();
+	menu_mod.description = menu_builder->get_module_description();
+	menu_mod.category = menu_builder->get_module_category();
+	menu_mod.files_to_create = menu_builder->get_files_to_create();
+	available_modules.push_back(menu_mod);
+
+	// HUD Builder System
+	HUDBuilderModule* hud_builder = new HUDBuilderModule();
+	register_module("hud_builder", hud_builder);
+
+	ProjectModule hud_mod;
+	hud_mod.id = "hud_builder";
+	hud_mod.name = hud_builder->get_module_name();
+	hud_mod.description = hud_builder->get_module_description();
+	hud_mod.category = hud_builder->get_module_category();
+	hud_mod.files_to_create = hud_builder->get_files_to_create();
+	available_modules.push_back(hud_mod);
 }
