@@ -29,6 +29,7 @@ class LupineDialogueEditor;
 class LupineAssetManager;
 class LupineQuestDesigner;
 class LupineCombatDesigner;
+class LupineTopdownRPGEditor;
 
 // Base class for all Lupine editor tools
 class LupineEditorTool : public RefCounted {
@@ -77,8 +78,7 @@ class LupineEditorPlugin : public EditorPlugin {
 
 private:
 	LupineToolManager *tool_manager = nullptr;
-	Control *main_panel = nullptr;
-	TabContainer *tool_tabs = nullptr;
+	bool is_lupine_mode_active = false;
 
 	// Tool instances
 	LupineWorldBuilder *world_builder = nullptr;
@@ -87,20 +87,10 @@ private:
 	LupineAssetManager *asset_manager = nullptr;
 	LupineQuestDesigner *quest_designer = nullptr;
 	LupineCombatDesigner *combat_designer = nullptr;
+	LupineTopdownRPGEditor *topdown_rpg_editor = nullptr;
 
-	// UI components
-	Button *toggle_button = nullptr;
-	VBoxContainer *sidebar_container = nullptr;
-	HSplitContainer *main_split = nullptr;
-
-	bool is_lupine_mode_active = false;
-
-	void _create_main_interface();
-	void _create_tool_tabs();
 	void _setup_tool_instances();
-	void _toggle_lupine_mode();
-	void _on_tool_tab_changed(int p_tab);
-	void _update_tool_visibility();
+	void _add_tool_tabs();
 
 protected:
 	static void _bind_methods();

@@ -335,10 +335,10 @@ void ProjectDialog::_setup_module_ui() {
 		CheckBox *module_checkbox = memnew(CheckBox);
 		module_checkbox->set_text(mod.name);
 		module_checkbox->set_tooltip_text(mod.description);
-		module_checkbox->set_toggle_mode(true);
+		// CheckBox already has toggle mode enabled by default, no need to set it
 		// Store module ID as metadata for proper identification
 		module_checkbox->set_meta("module_id", mod.id);
-		module_checkbox->connect("toggled", callable_mp(this, &ProjectDialog::_module_toggled).bind(mod.id));
+		module_checkbox->connect(SceneStringName(toggled), callable_mp(this, &ProjectDialog::_module_toggled).bind(mod.id));
 		category_vbox->add_child(module_checkbox);
 	}
 
@@ -1516,7 +1516,7 @@ void ProjectDialog::_initialize_templates() {
 		template_2d_topdown_8dir.default_modules.push_back("quest_system");
 		template_2d_topdown_8dir.default_modules.push_back("enemy_ai");
 		template_2d_topdown_8dir.default_modules.push_back("ability_system");
-		template_2d_topdown_8dir.default_modules.push_back("topdown_rpg_main_scene");
+		template_2d_topdown_8dir.default_modules.push_back("topdown_rpg_8dir_main_scene");
 		template_2d_topdown_8dir.default_modules.push_back("topdown_enemy_types");
 		template_2d_topdown_8dir.default_modules.push_back("rpg_world_elements");
 		template_2d_topdown_8dir.default_modules.push_back("topdown_combat");

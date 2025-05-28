@@ -1,9 +1,9 @@
-short_name = "godot"
-name = "Godot Engine"
-major = 4
-minor = 5
+short_name = "lupine"
+name = "Lupine Engine"
+major = 0
+minor = 1
 patch = 0
 status = "dev"
 module_config = ""
-website = "https://godotengine.org"
+website = ""
 docs = "latest"

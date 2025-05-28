@@ -1,6 +1,8 @@
 #include "lupine_module_manager.h"
 #include "lupine_module_base.h"
 #include "player_stats_module.h"
+#include "player_controller_2d_topdown_8dir_module.h"
+#include "topdown_rpg_8dir_main_scene_module.h"
 #include "camera_topdown_rpg_module.h"
 #include "camera_sidescroller_module.h"
 #include "camera_3d_orbit_module.h"
@@ -104,15 +106,16 @@ void LupineModuleManager::_register_player_controllers() {
 	module_2d_topdown.files_to_create.push_back("scenes/Player2DTopdown.tscn");
 	available_modules.push_back(module_2d_topdown);
 
-	// 2D Top-down 8-directional
+	// 2D Top-down 8-directional (proper module)
+	PlayerController2DTopdown8DirModule* topdown_8dir_controller = new PlayerController2DTopdown8DirModule();
+	register_module("player_controller_2d_topdown_8dir", topdown_8dir_controller);
+
 	ProjectModule module_2d_topdown_8dir;
 	module_2d_topdown_8dir.id = "player_controller_2d_topdown_8dir";
-	module_2d_topdown_8dir.name = "2D Top-down Player Controller (8-Direction)";
-	module_2d_topdown_8dir.description = "8-directional movement controller with health, stamina, attack, dash, and interaction";
-	module_2d_topdown_8dir.category = "Player Controllers";
-	module_2d_topdown_8dir.files_to_create.push_back("scripts/PlayerController2DTopdown8Dir.gd");
-	module_2d_topdown_8dir.files_to_create.push_back("scripts/PlayerStats.gd");
-	module_2d_topdown_8dir.files_to_create.push_back("scenes/Player2DTopdown8Dir.tscn");
+	module_2d_topdown_8dir.name = topdown_8dir_controller->get_module_name();
+	module_2d_topdown_8dir.description = topdown_8dir_controller->get_module_description();
+	module_2d_topdown_8dir.category = topdown_8dir_controller->get_module_category();
+	module_2d_topdown_8dir.files_to_create = topdown_8dir_controller->get_files_to_create();
 	available_modules.push_back(module_2d_topdown_8dir);
 
 	// 2D Platformer
@@ -356,7 +359,7 @@ void LupineModuleManager::_register_rpg_systems() {
 	mobs_mod.files_to_create = passive_mobs->get_files_to_create();
 	available_modules.push_back(mobs_mod);
 
-	// Top-down RPG Main Scene
+	// Top-down RPG Main Scene (4-directional)
 	TopdownRPGMainSceneModule* topdown_main = new TopdownRPGMainSceneModule();
 	register_module("topdown_rpg_main_scene", topdown_main);
 
@@ -367,6 +370,18 @@ void LupineModuleManager::_register_rpg_systems() {
 	topdown_main_mod.category = topdown_main->get_module_category();
 	topdown_main_mod.files_to_create = topdown_main->get_files_to_create();
 	available_modules.push_back(topdown_main_mod);
+
+	// Top-down RPG Main Scene (8-directional)
+	TopdownRPG8DirMainSceneModule* topdown_8dir_main = new TopdownRPG8DirMainSceneModule();
+	register_module("topdown_rpg_8dir_main_scene", topdown_8dir_main);
+
+	ProjectModule topdown_8dir_main_mod;
+	topdown_8dir_main_mod.id = "topdown_rpg_8dir_main_scene";
+	topdown_8dir_main_mod.name = topdown_8dir_main->get_module_name();
+	topdown_8dir_main_mod.description = topdown_8dir_main->get_module_description();
+	topdown_8dir_main_mod.category = topdown_8dir_main->get_module_category();
+	topdown_8dir_main_mod.files_to_create = topdown_8dir_main->get_files_to_create();
+	available_modules.push_back(topdown_8dir_main_mod);
 
 	// Top-down Enemy Types
 	TopdownEnemyTypesModule* topdown_enemies = new TopdownEnemyTypesModule();

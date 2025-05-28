@@ -452,26 +452,61 @@ void LupineModuleManager::_create_3d_first_person_controller(Ref<FileAccess> p_f
 }
 
 void LupineModuleManager::_create_2d_player_scene(Ref<FileAccess> p_file, const String &p_scene_name) {
-	p_file->store_line("[gd_scene load_steps=2 format=3]");
-	p_file->store_line("");
-	p_file->store_line("[ext_resource type=\"Script\" path=\"res://scripts/" + p_scene_name + ".gd\" id=\"1_player_script\"]");
-	p_file->store_line("");
-	p_file->store_line("[sub_resource type=\"RectangleShape2D\" id=\"RectangleShape2D_1\"]");
-	p_file->store_line("size = Vector2(32, 32)");
-	p_file->store_line("");
-	p_file->store_line("[node name=\"" + p_scene_name + "\" type=\"CharacterBody2D\"]");
-	p_file->store_line("script = ExtResource(\"1_player_script\")");
-	p_file->store_line("");
-	p_file->store_line("[node name=\"Sprite2D\" type=\"Sprite2D\" parent=\".\"]");
-	p_file->store_line("modulate = Color(0.5, 0.8, 1, 1)");
-	p_file->store_line("");
-	p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\".\"]");
-	p_file->store_line("shape = SubResource(\"RectangleShape2D_1\")");
-	p_file->store_line("");
-	p_file->store_line("[node name=\"InteractionArea\" type=\"Area2D\" parent=\".\"]");
-	p_file->store_line("");
-	p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\"InteractionArea\"]");
-	p_file->store_line("shape = SubResource(\"RectangleShape2D_1\")");
+	if (p_scene_name == "Player2DTopdown") {
+		// Enhanced Player2DTopdown scene with all necessary components
+		p_file->store_line("[gd_scene load_steps=4 format=3 uid=\"uid://player_2d_topdown\"]");
+		p_file->store_line("");
+		p_file->store_line("[ext_resource type=\"Script\" path=\"res://scripts/PlayerController2DTopdown.gd\" id=\"1_player_script\"]");
+		p_file->store_line("");
+		p_file->store_line("[sub_resource type=\"RectangleShape2D\" id=\"RectangleShape2D_1\"]");
+		p_file->store_line("size = Vector2(20, 30)");
+		p_file->store_line("");
+		p_file->store_line("[sub_resource type=\"CircleShape2D\" id=\"CircleShape2D_1\"]");
+		p_file->store_line("radius = 40.0");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"Player2DTopdown\" type=\"CharacterBody2D\"]");
+		p_file->store_line("script = ExtResource(\"1_player_script\")");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"Sprite2D\" type=\"Sprite2D\" parent=\".\"]");
+		p_file->store_line("modulate = Color(0.2, 0.8, 0.2, 1)");
+		p_file->store_line("scale = Vector2(20, 30)");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\".\"]");
+		p_file->store_line("shape = SubResource(\"RectangleShape2D_1\")");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"InteractionArea\" type=\"Area2D\" parent=\".\"]");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\"InteractionArea\"]");
+		p_file->store_line("shape = SubResource(\"CircleShape2D_1\")");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"AttackArea\" type=\"Area2D\" parent=\".\"]");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\"AttackArea\"]");
+		p_file->store_line("shape = SubResource(\"RectangleShape2D_1\")");
+		p_file->store_line("disabled = true");
+	} else {
+		// Generic 2D player scene
+		p_file->store_line("[gd_scene load_steps=2 format=3]");
+		p_file->store_line("");
+		p_file->store_line("[ext_resource type=\"Script\" path=\"res://scripts/" + p_scene_name + ".gd\" id=\"1_player_script\"]");
+		p_file->store_line("");
+		p_file->store_line("[sub_resource type=\"RectangleShape2D\" id=\"RectangleShape2D_1\"]");
+		p_file->store_line("size = Vector2(32, 32)");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"" + p_scene_name + "\" type=\"CharacterBody2D\"]");
+		p_file->store_line("script = ExtResource(\"1_player_script\")");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"Sprite2D\" type=\"Sprite2D\" parent=\".\"]");
+		p_file->store_line("modulate = Color(0.5, 0.8, 1, 1)");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\".\"]");
+		p_file->store_line("shape = SubResource(\"RectangleShape2D_1\")");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"InteractionArea\" type=\"Area2D\" parent=\".\"]");
+		p_file->store_line("");
+		p_file->store_line("[node name=\"CollisionShape2D\" type=\"CollisionShape2D\" parent=\"InteractionArea\"]");
+		p_file->store_line("shape = SubResource(\"RectangleShape2D_1\")");
+	}
 }
 
 void LupineModuleManager::_create_3d_player_scene(Ref<FileAccess> p_file, const String &p_scene_name) {

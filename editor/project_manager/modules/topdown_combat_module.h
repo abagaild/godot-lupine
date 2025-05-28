@@ -7,7 +7,7 @@ class TopdownCombatModule : public LupineModuleBase {
 public:
 	void generate_script(Ref<FileAccess> p_file) override;
 	void generate_scene(Ref<FileAccess> p_file, const String &p_scene_name) override;
-	
+
 	String get_module_name() const override { return "Top-down Combat System"; }
 	String get_module_description() const override { return "Enhanced combat system with projectiles, area attacks, status effects, and visual feedback"; }
 	String get_module_category() const override { return "Combat"; }
@@ -16,7 +16,7 @@ public:
 		files.push_back("scripts/combat/Projectile.gd");
 		files.push_back("scripts/combat/AreaAttack.gd");
 		files.push_back("scripts/combat/StatusEffect.gd");
-		files.push_back("scripts/combat/CombatManager.gd");
+		files.push_back("scripts/combat/TopdownCombatManager.gd");
 		files.push_back("scripts/combat/DamageNumber.gd");
 		files.push_back("scripts/combat/HitEffect.gd");
 		files.push_back("scenes/combat/Projectile.tscn");
@@ -27,7 +27,7 @@ public:
 	}
 
 	bool is_global_script() const override { return true; }
-	String get_autoload_name() const override { return "CombatManager"; }
+	String get_autoload_name() const override { return "TopdownCombatManager"; }
 };
 
 #endif // TOPDOWN_COMBAT_MODULE_H

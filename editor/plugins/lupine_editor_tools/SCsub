@@ -13,6 +13,7 @@ lupine_tools_sources = [
     "lupine_asset_manager.cpp",
     "lupine_quest_designer.cpp",
     "lupine_combat_designer.cpp",
+    "lupine_topdown_rpg_editor.cpp",
 ]
 
 # Build the Lupine Editor Tools as part of the editor

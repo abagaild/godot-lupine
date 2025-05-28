@@ -5,6 +5,7 @@
 #include "lupine_asset_manager.h"
 #include "lupine_quest_designer.h"
 #include "lupine_combat_designer.h"
+#include "lupine_topdown_rpg_editor.h"
 #include "editor/editor_node.h"
 #include "editor/editor_interface.h"
 #include "scene/gui/separator.h"
@@ -43,8 +44,7 @@ LupineEditorTool::~LupineEditorTool() {
 // LupineEditorPlugin Implementation
 
 void LupineEditorPlugin::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("_toggle_lupine_mode"), &LupineEditorPlugin::_toggle_lupine_mode);
-	ClassDB::bind_method(D_METHOD("_on_tool_tab_changed", "tab"), &LupineEditorPlugin::_on_tool_tab_changed);
+	// No methods need binding for the simplified tab-based approach
 }
 
 LupineEditorPlugin::LupineEditorPlugin() {
@@ -52,101 +52,26 @@ LupineEditorPlugin::LupineEditorPlugin() {
 
 	// Initialize member variables
 	tool_manager = nullptr;
-	main_panel = nullptr;
-	tool_tabs = nullptr;
 	world_builder = nullptr;
 	entity_editor = nullptr;
 	dialogue_editor = nullptr;
 	asset_manager = nullptr;
 	quest_designer = nullptr;
 	combat_designer = nullptr;
-	toggle_button = nullptr;
-	sidebar_container = nullptr;
-	main_split = nullptr;
-	is_lupine_mode_active = false;
 
 	// Initialize the plugin immediately in constructor (like other built-in plugins)
 	print_line("LupineEditorPlugin: Initializing plugin...");
 
-	// Create the main Lupine Tools panel
-	main_panel = memnew(VBoxContainer);
-	main_panel->set_name("LupineEditorTools");
-	main_panel->set_custom_minimum_size(Size2(250, 400));
+	// Create tool manager
+	tool_manager = memnew(LupineToolManager(this));
+	print_line("LupineEditorPlugin: Tool manager created");
 
-	// Create header
-	Label *header_label = memnew(Label);
-	header_label->set_text("Lupine Editor Tools");
-	header_label->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER);
-	header_label->add_theme_font_size_override("font_size", 14);
-	main_panel->add_child(header_label);
+	// Setup tool instances
+	_setup_tool_instances();
 
-	// Add separator
-	HSeparator *separator1 = memnew(HSeparator);
-	main_panel->add_child(separator1);
+	// Add tool tabs to the editor
+	_add_tool_tabs();
 
-	// Core Tools Section
-	Label *core_label = memnew(Label);
-	core_label->set_text("Core Tools");
-	core_label->add_theme_font_size_override("font_size", 12);
-	main_panel->add_child(core_label);
-
-	// Entity Editor - Main implementation
-	Button *entity_editor_btn = memnew(Button);
-	entity_editor_btn->set_text("Entity Editor");
-	entity_editor_btn->set_tooltip_text("Manage player, enemy, and NPC entities with visual and logic controls");
-	entity_editor_btn->connect("pressed", callable_mp(this, &LupineEditorPlugin::_open_entity_editor));
-	main_panel->add_child(entity_editor_btn);
-
-	// World Builder
-	Button *world_builder_btn = memnew(Button);
-	world_builder_btn->set_text("World Builder");
-	world_builder_btn->set_tooltip_text("Visual world building and asset placement tool");
-	world_builder_btn->connect("pressed", callable_mp(this, &LupineEditorPlugin::_open_world_builder));
-	main_panel->add_child(world_builder_btn);
-
-	// Dialogue Editor
-	Button *dialogue_editor_btn = memnew(Button);
-	dialogue_editor_btn->set_text("Dialogue Editor");
-	dialogue_editor_btn->set_tooltip_text("Create and manage dialogue trees and conversations");
-	dialogue_editor_btn->connect("pressed", callable_mp(this, &LupineEditorPlugin::_open_dialogue_editor));
-	main_panel->add_child(dialogue_editor_btn);
-
-	// Add separator
-	HSeparator *separator2 = memnew(HSeparator);
-	main_panel->add_child(separator2);
-
-	// Scene Management Section
-	Label *scene_label = memnew(Label);
-	scene_label->set_text("Scene Management");
-	scene_label->add_theme_font_size_override("font_size", 12);
-	main_panel->add_child(scene_label);
-
-	// Scene Viewer
-	Button *scene_viewer_btn = memnew(Button);
-	scene_viewer_btn->set_text("Scene Viewer");
-	scene_viewer_btn->set_tooltip_text("Browse and manage all scenes in your project");
-	scene_viewer_btn->connect("pressed", callable_mp(this, &LupineEditorPlugin::_open_scene_viewer));
-	main_panel->add_child(scene_viewer_btn);
-
-	// Overworld Editor
-	Button *overworld_editor_btn = memnew(Button);
-	overworld_editor_btn->set_text("Overworld Editor");
-	overworld_editor_btn->set_tooltip_text("Manage map connections and world transitions");
-	overworld_editor_btn->connect("pressed", callable_mp(this, &LupineEditorPlugin::_open_overworld_editor));
-	main_panel->add_child(overworld_editor_btn);
-
-	// Add to dock
-	add_control_to_dock(DOCK_SLOT_LEFT_UL, main_panel);
-	print_line("LupineEditorPlugin: Test panel with buttons added to dock");
-
-	// Add toggle button to toolbar
-	toggle_button = memnew(Button);
-	toggle_button->set_text("Lupine Tools");
-	toggle_button->set_tooltip_text("Toggle Lupine Engine visual editing tools");
-	// Skip connecting the signal for now to avoid potential issues
-	// toggle_button->connect("pressed", callable_mp(this, &LupineEditorPlugin::_toggle_lupine_mode));
-
-	add_control_to_container(CONTAINER_TOOLBAR, toggle_button);
 	print_line("LupineEditorPlugin: Plugin initialized successfully");
 }
 
@@ -181,28 +106,51 @@ void LupineEditorPlugin::enable_plugin() {
 }
 
 void LupineEditorPlugin::disable_plugin() {
-	if (toggle_button) {
-		remove_control_from_container(CONTAINER_TOOLBAR, toggle_button);
-		toggle_button = nullptr;
+	// Remove all tool tabs from the bottom panel
+	if (world_builder) {
+		Control *panel = world_builder->get_tool_panel();
+		if (panel) {
+			remove_control_from_bottom_panel(panel);
+		}
 	}
-
-	if (main_panel) {
-		remove_control_from_docks(main_panel);
-		memdelete(main_panel);
-		main_panel = nullptr;
+	if (entity_editor) {
+		Control *panel = entity_editor->get_tool_panel();
+		if (panel) {
+			remove_control_from_bottom_panel(panel);
+		}
+	}
+	if (dialogue_editor) {
+		Control *panel = dialogue_editor->get_tool_panel();
+		if (panel) {
+			remove_control_from_bottom_panel(panel);
+		}
+	}
+	if (asset_manager) {
+		Control *panel = asset_manager->get_tool_panel();
+		if (panel) {
+			remove_control_from_bottom_panel(panel);
+		}
+	}
+	if (quest_designer) {
+		Control *panel = quest_designer->get_tool_panel();
+		if (panel) {
+			remove_control_from_bottom_panel(panel);
+		}
+	}
+	if (combat_designer) {
+		Control *panel = combat_designer->get_tool_panel();
+		if (panel) {
+			remove_control_from_bottom_panel(panel);
+		}
 	}
 }
 
 bool LupineEditorPlugin::handles(Object *p_object) const {
 	// Handle scene files and nodes that can be edited with Lupine tools
-	return is_lupine_mode_active && (Object::cast_to<Node>(p_object) != nullptr);
+	return Object::cast_to<Node>(p_object) != nullptr;
 }
 
 void LupineEditorPlugin::edit(Object *p_object) {
-	if (!is_lupine_mode_active) {
-		return;
-	}
-
 	Node *node = Object::cast_to<Node>(p_object);
 	if (node && tool_manager) {
 		tool_manager->on_node_selected(node);
@@ -210,59 +158,67 @@ void LupineEditorPlugin::edit(Object *p_object) {
 }
 
 void LupineEditorPlugin::make_visible(bool p_visible) {
-	if (main_panel) {
-		main_panel->set_visible(p_visible && is_lupine_mode_active);
-	}
+	// Tab visibility is now managed by the editor itself
+	// No action needed here
 }
 
 String LupineEditorPlugin::get_plugin_name() const {
 	return "Lupine Editor Tools";
 }
 
-void LupineEditorPlugin::_create_main_interface() {
-	print_line("LupineEditorPlugin: Creating main interface...");
+void LupineEditorPlugin::_add_tool_tabs() {
+	print_line("LupineEditorPlugin: Adding tool tabs to editor...");
 
-	// Create main panel
-	main_panel = memnew(Control);
-	main_panel->set_name("LupineEditorTools");
-	main_panel->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
-	print_line("LupineEditorPlugin: Main panel created");
+	// Add each tool as a separate tab in the bottom panel
+	if (world_builder) {
+		Control *panel = world_builder->get_tool_panel();
+		if (panel) {
+			add_control_to_bottom_panel(panel, "World Builder");
+			print_line("LupineEditorPlugin: World Builder tab added");
+		}
+	}
 
-	// Create main split container
-	main_split = memnew(HSplitContainer);
-	main_split->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
-	main_panel->add_child(main_split);
-	print_line("LupineEditorPlugin: Split container created");
+	if (entity_editor) {
+		Control *panel = entity_editor->get_tool_panel();
+		if (panel) {
+			add_control_to_bottom_panel(panel, "Entity Editor");
+			print_line("LupineEditorPlugin: Entity Editor tab added");
+		}
+	}
 
-	// Create sidebar for tool selection
-	sidebar_container = memnew(VBoxContainer);
-	sidebar_container->set_custom_minimum_size(Size2(250, 0));
-	main_split->add_child(sidebar_container);
-	print_line("LupineEditorPlugin: Sidebar container created");
+	if (dialogue_editor) {
+		Control *panel = dialogue_editor->get_tool_panel();
+		if (panel) {
+			add_control_to_bottom_panel(panel, "Dialogue Editor");
+			print_line("LupineEditorPlugin: Dialogue Editor tab added");
+		}
+	}
 
-	// Add title label
-	Label *title_label = memnew(Label);
-	title_label->set_text("Lupine Editor Tools");
-	// Skip theme styling for now to avoid potential initialization issues
-	sidebar_container->add_child(title_label);
-	print_line("LupineEditorPlugin: Title label added");
+	if (asset_manager) {
+		Control *panel = asset_manager->get_tool_panel();
+		if (panel) {
+			add_control_to_bottom_panel(panel, "Asset Manager");
+			print_line("LupineEditorPlugin: Asset Manager tab added");
+		}
+	}
 
-	// Add separator
-	HSeparator *separator = memnew(HSeparator);
-	sidebar_container->add_child(separator);
-	print_line("LupineEditorPlugin: Separator added");
+	if (quest_designer) {
+		Control *panel = quest_designer->get_tool_panel();
+		if (panel) {
+			add_control_to_bottom_panel(panel, "Quest Designer");
+			print_line("LupineEditorPlugin: Quest Designer tab added");
+		}
+	}
 
-	// Create tool tabs container
-	_create_tool_tabs();
-	print_line("LupineEditorPlugin: Tool tabs created");
-}
+	if (combat_designer) {
+		Control *panel = combat_designer->get_tool_panel();
+		if (panel) {
+			add_control_to_bottom_panel(panel, "Combat Designer");
+			print_line("LupineEditorPlugin: Combat Designer tab added");
+		}
+	}
 
-void LupineEditorPlugin::_create_tool_tabs() {
-	tool_tabs = memnew(TabContainer);
-	tool_tabs->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	tool_tabs->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	tool_tabs->connect("tab_changed", callable_mp(this, &LupineEditorPlugin::_on_tool_tab_changed));
-	main_split->add_child(tool_tabs);
+	print_line("LupineEditorPlugin: All tool tabs added successfully");
 }
 
 void LupineEditorPlugin::_setup_tool_instances() {
@@ -309,55 +265,23 @@ void LupineEditorPlugin::_setup_tool_instances() {
 	combat_designer->initialize();
 	register_tool(combat_designer);
 	print_line("LupineEditorPlugin: Combat Designer registered");
+
+	// Create and register Topdown RPG Editor
+	print_line("LupineEditorPlugin: Creating Topdown RPG Editor...");
+	topdown_rpg_editor = memnew(LupineTopdownRPGEditor);
+	topdown_rpg_editor->initialize();
+	register_tool(topdown_rpg_editor);
+	print_line("LupineEditorPlugin: Topdown RPG Editor registered");
 }
 
-void LupineEditorPlugin::_toggle_lupine_mode() {
-	is_lupine_mode_active = !is_lupine_mode_active;
 
-	if (toggle_button) {
-		toggle_button->set_pressed(is_lupine_mode_active);
-	}
-
-	_update_tool_visibility();
-
-	if (is_lupine_mode_active) {
-		// Activate first tool by default
-		if (tool_tabs && tool_tabs->get_tab_count() > 0) {
-			activate_tool(world_builder->get_tool_name());
-		}
-	} else {
-		deactivate_all_tools();
-	}
-}
-
-void LupineEditorPlugin::_on_tool_tab_changed(int p_tab) {
-	if (!tool_tabs || p_tab < 0 || p_tab >= tool_tabs->get_tab_count()) {
-		return;
-	}
-
-	String tab_name = tool_tabs->get_tab_title(p_tab);
-	activate_tool(tab_name);
-}
-
-void LupineEditorPlugin::_update_tool_visibility() {
-	if (main_panel) {
-		main_panel->set_visible(is_lupine_mode_active);
-	}
-}
 
 void LupineEditorPlugin::register_tool(LupineEditorTool *p_tool) {
-	if (!p_tool || !tool_manager || !tool_tabs) {
+	if (!p_tool || !tool_manager) {
 		return;
 	}
 
 	tool_manager->register_tool(p_tool->get_tool_name(), p_tool);
-
-	// Add tool panel to tabs
-	Control *tool_panel = p_tool->get_tool_panel();
-	if (tool_panel) {
-		tool_tabs->add_child(tool_panel);
-		tool_tabs->set_tab_title(tool_tabs->get_tab_count() - 1, p_tool->get_tool_name());
-	}
 }
 
 void LupineEditorPlugin::unregister_tool(LupineEditorTool *p_tool) {
@@ -366,12 +290,6 @@ void LupineEditorPlugin::unregister_tool(LupineEditorTool *p_tool) {
 	}
 
 	tool_manager->unregister_tool(p_tool->get_tool_name());
-
-	// Remove from tabs
-	Control *tool_panel = p_tool->get_tool_panel();
-	if (tool_panel && tool_tabs && tool_panel->get_parent() == tool_tabs) {
-		tool_tabs->remove_child(tool_panel);
-	}
 }
 
 LupineEditorTool *LupineEditorPlugin::get_tool(const String &p_name) {
@@ -394,6 +312,8 @@ void LupineEditorPlugin::deactivate_all_tools() {
 	}
 	tool_manager->deactivate_current_tool();
 }
+
+
 
 // LupineToolManager Implementation
 
